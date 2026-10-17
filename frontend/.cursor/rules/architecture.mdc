@@ -1,0 +1,25 @@
+---
+description: Enforce Meraki Interiors frontend architecture and coding conventions
+globs:
+  - "src/**/*.{ts,tsx}"
+  - "vite.config.ts"
+  - "eslint.config.js"
+alwaysApply: true
+---
+
+# Frontend architecture rules
+
+Follow `CLAUDE.md` as the source of truth.
+
+Hard rules:
+- Feature-based architecture; no empty placeholder folders
+- TypeScript only in `src/` (no `.js`/`.jsx`)
+- No explicit `any`
+- kebab-case filenames
+- `@/` path aliases
+- Add shadcn components via CLI only
+- Server state → TanStack Query; URL state → nuqs; forms → RHF + Zod
+- Routes only via `ROUTES` helpers in `src/constants/routes.ts`
+- Env only via `src/lib/env.ts`
+- Do not add Redux/Zustand/Jotai without demonstrated need
+- Do not weaken lint/type rules
