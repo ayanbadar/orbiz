@@ -34,7 +34,7 @@ export function GuestOnly({ children }: { children: ReactNode }) {
   }
 
   if (status === "authenticated") {
-    return <Navigate to={ROUTES.account()} replace />;
+    return <Navigate to={ROUTES.products.root()} replace />;
   }
 
   return children;
@@ -49,7 +49,7 @@ export function HomeRedirect() {
 
   return (
     <Navigate
-      to={status === "authenticated" ? ROUTES.account() : ROUTES.signIn()}
+      to={status === "authenticated" ? ROUTES.products.root() : ROUTES.signIn()}
       replace
     />
   );

@@ -34,6 +34,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             ) : null}
             <Link
+              to={ROUTES.products.root()}
+              className="text-sm font-semibold underline-offset-4 hover:underline"
+            >
+              Products
+            </Link>
+            <Link
               to={ROUTES.account()}
               className="text-sm font-semibold underline-offset-4 hover:underline"
             >
