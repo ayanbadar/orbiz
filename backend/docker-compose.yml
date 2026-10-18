@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-meraki}
-      POSTGRES_USER: ${POSTGRES_USER:-meraki}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meraki}
+      POSTGRES_DB: ${POSTGRES_DB:-orbiz}
+      POSTGRES_USER: ${POSTGRES_USER:-orbiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orbiz}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meraki} -d ${POSTGRES_DB:-meraki}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orbiz} -d ${POSTGRES_DB:-orbiz}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,7 @@ services:
 
   backend:
     build: .
-    image: meraki-backend
+    image: orbiz-backend
     env_file:
       - .env
     ports:
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
 
   celery_worker:
-    image: meraki-backend
+    image: orbiz-backend
     command: celery -A config worker -l info
     env_file:
       - .env
@@ -56,7 +56,7 @@ services:
         condition: service_started
 
   celery_beat:
-    image: meraki-backend
+    image: orbiz-backend
     command: celery -A config beat -l info
     env_file:
       - .env
