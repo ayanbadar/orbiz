@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/features/auth/context/auth-context";
 import { queryClient } from "@/lib/query-client";
 
 type AppProvidersProps = {
@@ -20,9 +22,12 @@ export function AppProviders({ children }: AppProvidersProps) {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <NuqsAdapter>{children}</NuqsAdapter>
+          <NuqsAdapter>
+            <AuthProvider>{children}</AuthProvider>
+          </NuqsAdapter>
         </BrowserRouter>
         <ReactQueryDevtools initialIsOpen={false} />
+        <Toaster />
       </QueryClientProvider>
     </ErrorBoundary>
   );

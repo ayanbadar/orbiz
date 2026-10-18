@@ -1,6 +1,23 @@
-import axios, { AxiosError, type AxiosInstance } from "axios";
+import axios, {
+  AxiosError,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
+import { readApiErrorMessage } from "@/lib/api/errors";
+import { refreshAccessToken } from "@/lib/auth-session";
+import { getAccessToken } from "@/lib/auth-token";
 import { env } from "@/lib/env";
+
+const PUBLIC_AUTH_PATHS = [
+  "/api/v1/auth/login/",
+  "/api/v1/auth/register/",
+  "/api/v1/auth/token/refresh/",
+  "/api/v1/auth/forgot-password/",
+  "/api/v1/auth/reset-password/",
+];
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 export class ApiError extends Error {
   readonly status: number | undefined;
@@ -24,6 +41,13 @@ export class ApiError extends Error {
   }
 }
 
+function isPublicAuthRequest(url: string | undefined): boolean {
+  if (!url) {
+    return false;
+  }
+  return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error;
@@ -31,15 +55,17 @@ function toApiError(error: unknown): ApiError {
 
   if (error instanceof AxiosError) {
     const status = error.response?.status;
-    const data = error.response?.data as
-      { message?: string; code?: string } | undefined;
+    const data = error.response?.data as { code?: string } | undefined;
 
-    return new ApiError(data?.message ?? error.message ?? "Request failed", {
-      status,
-      code: data?.code,
-      details: data,
-      cause: error,
-    });
+    return new ApiError(
+      readApiErrorMessage(data) ?? error.message ?? "Request failed",
+      {
+        status,
+        code: data?.code,
+        details: data,
+        cause: error,
+      },
+    );
   }
 
   if (error instanceof Error) {
@@ -59,10 +85,36 @@ function createApiClient(): AxiosInstance {
     timeout: 30_000,
   });
 
+  client.interceptors.request.use((config) => {
+    const token = getAccessToken();
+    if (token && !isPublicAuthRequest(config.url)) {
+      config.headers.set("Authorization", `Bearer ${token}`);
+    }
+    return config;
+  });
+
   client.interceptors.response.use(
     (response) => response,
-    (error: unknown) => {
-      // Future: handle 401/403 auth redirects here.
+    async (error: unknown) => {
+      if (!(error instanceof AxiosError) || !error.config) {
+        return Promise.reject(toApiError(error));
+      }
+
+      const config = error.config as RetriableConfig;
+      const status = error.response?.status;
+      if (
+        status === 401 &&
+        !config._retry &&
+        !isPublicAuthRequest(config.url)
+      ) {
+        config._retry = true;
+        const access = await refreshAccessToken();
+        if (access) {
+          config.headers.set("Authorization", `Bearer ${access}`);
+          return client.request(config);
+        }
+      }
+
       return Promise.reject(toApiError(error));
     },
   );
