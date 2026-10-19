@@ -19,10 +19,6 @@ export function getProductAvailabilityLabel(product: AvailabilitySlice): string 
   return "In stock";
 }
 
-export function isOutOfStock(product: Pick<Product, "stock_quantity">): boolean {
-  return product.stock_quantity <= 0;
-}
-
 /** Shared status color for list + detail — keep tone rules in one place. */
 export function getProductAvailabilityClassName(
   product: AvailabilitySlice,

@@ -36,6 +36,17 @@ export type ProductUpdateRequest = {
   image_url?: string;
 };
 
+/** Matches ProductListCreateView allowed `ordering` values. */
+export type ProductListOrdering =
+  | "name"
+  | "-name"
+  | "price"
+  | "-price"
+  | "stock_quantity"
+  | "-stock_quantity"
+  | "updated_at"
+  | "-updated_at";
+
 export type ProductListParams = {
   q?: string;
   low_stock?: boolean;
@@ -43,6 +54,7 @@ export type ProductListParams = {
   is_active?: boolean;
   page?: number;
   page_size?: number;
+  ordering?: ProductListOrdering;
 };
 
 export type InventoryAdjustment = {

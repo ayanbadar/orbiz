@@ -4,6 +4,7 @@ import {
   parseAsBoolean,
   parseAsInteger,
   parseAsString,
+  parseAsStringLiteral,
   useQueryStates,
 } from "nuqs";
 
@@ -19,14 +20,22 @@ import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants/routes";
 import { useProducts } from "@/features/products/api/products.api";
 import { Channel3SearchDialog } from "@/features/products/components/channel3-search-dialog";
-import { ProductImage } from "@/features/products/components/product-image";
-import {
-  getProductAvailabilityClassName,
-  getProductAvailabilityLabel,
-} from "@/features/products/utils/product-status";
+import { ProductsGrid } from "@/features/products/components/products-grid";
+import type { ProductListOrdering } from "@/features/products/types";
 import { useCurrentStore } from "@/features/stores/api/stores.api";
 import { ApiError } from "@/lib/api";
 import { cn } from "cn";
+
+const PRODUCT_ORDERINGS = [
+  "name",
+  "-name",
+  "price",
+  "-price",
+  "stock_quantity",
+  "-stock_quantity",
+  "updated_at",
+  "-updated_at",
+] as const satisfies readonly ProductListOrdering[];
 
 export function ProductsPage() {
   const storeQuery = useCurrentStore();
@@ -38,6 +47,7 @@ export function ProductsPage() {
     // null = all; true = active only; false = inactive only
     is_active: parseAsBoolean,
     page: parseAsInteger.withDefault(1),
+    ordering: parseAsStringLiteral(PRODUCT_ORDERINGS).withDefault("name"),
   });
 
   const storeReady = Boolean(storeQuery.data);
@@ -54,6 +64,7 @@ export function ProductsPage() {
       is_active: filters.is_active === null ? undefined : filters.is_active,
       page: filters.page,
       page_size: DEFAULT_PAGE_SIZE,
+      ordering: filters.ordering,
     },
     { enabled: storeReady },
   );
@@ -208,74 +219,14 @@ export function ProductsPage() {
               Updating…
             </p>
           ) : null}
-          <CardContent className="overflow-x-auto p-0">
-            {/*
-              table-fixed + col widths keep SKU/price aligned when a long
-              product name appears or disappears via filters.
-            */}
-            <table className="w-full min-w-[720px] table-fixed text-left text-sm">
-              <colgroup>
-                <col className="w-[42%]" />
-                <col className="w-[18%]" />
-                <col className="w-[16%]" />
-                <col className="w-[10%]" />
-                <col className="w-[14%]" />
-              </colgroup>
-              <thead className="border-b border-border text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Product</th>
-                  <th className="px-4 py-3 font-medium">SKU</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 font-medium">Stock</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="border-b border-border/60 last:border-0"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <ProductImage
-                          src={product.image_url}
-                          alt={product.name}
-                          size="sm"
-                        />
-                        <Link
-                          to={ROUTES.products.detail(product.id)}
-                          title={product.name}
-                          className="min-w-0 truncate font-semibold text-foreground underline-offset-4 hover:underline"
-                        >
-                          {product.name}
-                        </Link>
-                      </div>
-                    </td>
-                    <td
-                      className="truncate px-4 py-3 font-mono text-xs text-body"
-                      title={product.sku}
-                    >
-                      {product.sku}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 tabular-nums">
-                      {product.currency} {product.price}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 tabular-nums">
-                      {product.stock_quantity}
-                    </td>
-                    <td
-                      className={cn(
-                        "whitespace-nowrap px-4 py-3 font-medium",
-                        getProductAvailabilityClassName(product),
-                      )}
-                    >
-                      {getProductAvailabilityLabel(product)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <CardContent className="p-0">
+            <ProductsGrid
+              products={rows}
+              ordering={filters.ordering}
+              onOrderingChange={(ordering) => {
+                void setFilters({ ordering, page: 1 });
+              }}
+            />
           </CardContent>
           {showPagination ? (
             <CardFooter className="justify-stretch border-border bg-card px-4 py-3">

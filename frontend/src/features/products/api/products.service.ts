@@ -26,6 +26,7 @@ export class ProductService {
               : "false",
         page: params.page,
         page_size: params.page_size,
+        ordering: params.ordering,
       },
     });
     return response.data;

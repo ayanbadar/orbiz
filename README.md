@@ -31,6 +31,12 @@ Sample Channel3 search in the UI: `black hoodie`.
 - Used for **search + import** into the seller’s Orbiz catalog (title, image, suggested price).
 - Channel3 is **not** inventory truth and **not** checkout. Buy links are not used for payment.
 
+## AG Grid (sponsor) — products inventory table
+
+- Products list (`/products`) uses **AG Grid Community** (`ag-grid-react`) for sort, column resize/filter, and a polished data grid.
+- Shared shell: `frontend/src/components/data-grid.tsx` (`DataGrid` + `DataGridProvider`) — reuse for Orders later.
+- Server filters (`q`, low/out of stock, active), page-number pagination, and sort (`ordering` for name/price/stock) stay in the URL via `nuqs`; the grid renders the current page. Column filters refine the loaded page client-side.
+
 ## Product images (S3-ready)
 
 - Store a single **`image_url`** string on `Product` (HTTPS URL, max 2048). UI always renders `src={image_url}`.
