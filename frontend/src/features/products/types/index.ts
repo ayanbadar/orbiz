@@ -39,8 +39,10 @@ export type ProductUpdateRequest = {
 export type ProductListParams = {
   q?: string;
   low_stock?: boolean;
+  out_of_stock?: boolean;
   is_active?: boolean;
   page?: number;
+  page_size?: number;
 };
 
 export type InventoryAdjustment = {
@@ -69,9 +71,4 @@ export type Channel3SearchResponse = {
   next_page_token: string | null;
 };
 
-export type Paginated<T> = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-};
+export type { Paginated } from "@/lib/api/types";

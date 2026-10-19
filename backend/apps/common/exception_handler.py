@@ -40,15 +40,18 @@ def custom_exception_handler(exc, context):
     if response is None:
         return None
 
-    # Keep DRF field-error shape for clients; attach a stable code when possible.
-    if isinstance(response.data, dict) and "code" not in response.data:
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            response.data = {**response.data}
-        elif "detail" in response.data and isinstance(response.data["detail"], str):
-            response.data = {
-                **response.data,
-                "code": _code_for_status(response.status_code),
-            }
+    # Keep DRF field-error shape for clients; attach a stable code on detail responses.
+    if (
+        isinstance(response.data, dict)
+        and "code" not in response.data
+        and "detail" in response.data
+        and isinstance(response.data["detail"], str)
+        and response.status_code != status.HTTP_400_BAD_REQUEST
+    ):
+        response.data = {
+            **response.data,
+            "code": _code_for_status(response.status_code),
+        }
     return response
 
 

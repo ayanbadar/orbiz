@@ -21,7 +21,7 @@ class Product(models.Model):
     stock_quantity = models.PositiveIntegerField(default=0)
     low_stock_threshold = models.PositiveIntegerField(default=5)
     is_active = models.BooleanField(default=True)
-    image_url = models.URLField(blank=True, default="")
+    image_url = models.URLField(max_length=2048, blank=True, default="")
     channel3_product_id = models.CharField(max_length=64, blank=True, default="")
     channel3_source = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

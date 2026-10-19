@@ -11,14 +11,15 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
 import {
+  applyFieldErrors,
+  getErrorMessage,
+} from "@/features/auth/utils/form-errors";
+import {
   useCreateProduct,
   useProduct,
   useUpdateProduct,
 } from "@/features/products/api/products.api";
-import {
-  applyFieldErrors,
-  getErrorMessage,
-} from "@/features/auth/utils/form-errors";
+import { ProductImage } from "@/features/products/components/product-image";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Enter a name."),
@@ -55,6 +56,8 @@ export function ProductFormPage() {
       is_active: true,
     },
   });
+  const imageUrl = form.watch("image_url");
+  const productName = form.watch("name");
 
   useEffect(() => {
     if (existing.data) {
@@ -147,7 +150,23 @@ export function ProductFormPage() {
           </Field>
         </div>
         <Field label="Image URL">
-          <Input {...form.register("image_url")} placeholder="https://" />
+          <div className="flex flex-wrap items-start gap-3">
+            <ProductImage
+              src={imageUrl}
+              alt={productName || "Product preview"}
+              size="md"
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Input
+                {...form.register("image_url")}
+                placeholder="https://…"
+              />
+              <p className="text-xs text-muted-foreground">
+                Public HTTPS URL for now (Channel3 or paste). Later, S3 uploads
+                will fill this same field — no schema change.
+              </p>
+            </div>
+          </div>
         </Field>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...form.register("is_active")} />

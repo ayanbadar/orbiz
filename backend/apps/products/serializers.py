@@ -8,6 +8,7 @@ from apps.products.channel3 import Channel3Error, Channel3NotConfigured, retriev
 from apps.products.models import InventoryAdjustment, Product
 from apps.products.services import (
     adjust_stock,
+    check_stock,
     create_product,
     import_product_from_channel3,
     update_product,
@@ -59,7 +60,7 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductCreateSerializer(serializers.ModelSerializer):
     stock_quantity = serializers.IntegerField(min_value=0, default=0)
     low_stock_threshold = serializers.IntegerField(min_value=0, default=5)
-    image_url = serializers.URLField(required=False, allow_blank=True)
+    image_url = serializers.URLField(required=False, allow_blank=True, max_length=2048)
 
     class Meta:
         model = Product
@@ -100,7 +101,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
 
 class ProductUpdateSerializer(serializers.ModelSerializer):
-    image_url = serializers.URLField(required=False, allow_blank=True)
+    image_url = serializers.URLField(required=False, allow_blank=True, max_length=2048)
 
     class Meta:
         model = Product
@@ -180,6 +181,27 @@ class InventoryAdjustmentSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class CheckStockSerializer(serializers.Serializer):
+    quantity = serializers.IntegerField(min_value=1)
+
+    def create(self, validated_data):
+        product = self.context["product"]
+        try:
+            return check_stock(product=product, quantity=validated_data["quantity"])
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            ) from exc
+
+
+class CheckStockResponseSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    sku = serializers.CharField()
+    requested_quantity = serializers.IntegerField()
+    stock_quantity = serializers.IntegerField()
+    available = serializers.BooleanField()
 
 
 class Channel3SearchSerializer(serializers.Serializer):

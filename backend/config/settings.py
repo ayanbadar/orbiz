@@ -153,7 +153,7 @@ REST_FRAMEWORK = {
         "writes": "60/minute",
         "channel3": "30/minute",
     },
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
 }
 

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { PRODUCT_QUERY_KEYS } from "@/features/products/api/products.keys";
 import { ProductService } from "@/features/products/api/products.service";
@@ -16,6 +21,8 @@ export function useProducts(
     queryKey: PRODUCT_QUERY_KEYS.list(params),
     queryFn: () => ProductService.list(params),
     enabled: options?.enabled ?? true,
+    // Keep the prior page visible while filters/page change — avoids table flicker.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -60,6 +67,26 @@ export function useAdjustStock(id: number) {
   return useMutation({
     mutationFn: (body: { delta: number; reason: string }) =>
       ProductService.adjustStock(id, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+    },
+  });
+}
+
+export function useDeactivateProduct(id: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => ProductService.deactivate(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+    },
+  });
+}
+
+export function useActivateProduct(id: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => ProductService.update(id, { is_active: true }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
     },

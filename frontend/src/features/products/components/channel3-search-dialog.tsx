@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { Clickable } from "@/components/clickable";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,8 +18,11 @@ import {
   useChannel3Search,
   useImportFromChannel3,
 } from "@/features/products/api/products.api";
+import { ProductImage } from "@/features/products/components/product-image";
 import type { Channel3Result } from "@/features/products/types";
+import { suggestSkuFromTitle } from "@/features/products/utils/suggest-sku";
 import { ApiError } from "@/lib/api";
+import { cn } from "cn";
 
 type Props = {
   open: boolean;
@@ -142,31 +146,35 @@ export function Channel3SearchDialog({ open, onOpenChange }: Props) {
         <ul className="mt-2 space-y-2">
           {(search.data?.results ?? []).map((item) => (
             <li key={item.channel3_product_id}>
-              <button
+              <Clickable
                 type="button"
-                className={`w-full rounded-[16px] border px-4 py-3 text-left ${
+                className={cn(
+                  "w-full rounded-[16px] border px-4 py-3 text-left transition-colors",
                   selected?.channel3_product_id === item.channel3_product_id
                     ? "border-foreground bg-muted"
-                    : "border-border"
-                }`}
+                    : "border-border hover:border-foreground/40 hover:bg-muted/60",
+                )}
                 onClick={() => {
                   setSelected(item);
                   setPrice(item.suggested_price || "");
-                  setSku(
-                    item.title
-                      .slice(0, 12)
-                      .toUpperCase()
-                      .replace(/[^A-Z0-9]+/g, "-")
-                      .replace(/^-|-$/g, "") || "SKU",
-                  );
+                  setSku(suggestSkuFromTitle(item.title));
                 }}
               >
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-sm text-body">
-                  {item.currency} {item.suggested_price ?? "—"}
-                  {item.brand ? ` · ${item.brand}` : ""}
-                </p>
-              </button>
+                <div className="flex items-center gap-3">
+                  <ProductImage
+                    src={item.image_url}
+                    alt={item.title}
+                    size="md"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="text-sm text-body">
+                      {item.currency} {item.suggested_price ?? "—"}
+                      {item.brand ? ` · ${item.brand}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </Clickable>
             </li>
           ))}
         </ul>

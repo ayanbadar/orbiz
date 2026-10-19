@@ -9,6 +9,8 @@ import { refreshAccessToken } from "@/lib/auth-session";
 import { getAccessToken } from "@/lib/auth-token";
 import { env } from "@/lib/env";
 
+export type { Paginated } from "@/lib/api/types";
+
 const PUBLIC_AUTH_PATHS = [
   "/api/v1/auth/login/",
   "/api/v1/auth/register/",

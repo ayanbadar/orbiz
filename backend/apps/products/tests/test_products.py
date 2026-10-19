@@ -326,3 +326,143 @@ class ProductApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["image_url"], "")
+
+    def test_check_stock_available(self):
+        self.client.force_authenticate(self.user)
+        product = Product.objects.create(
+            store=self.store,
+            name="In Stock",
+            sku="CHK-OK",
+            price=Decimal("10.00"),
+            currency="USD",
+            stock_quantity=5,
+        )
+        response = self.client.post(
+            f"/api/v1/products/{product.id}/check-stock/",
+            {"quantity": 3},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["available"])
+        self.assertEqual(response.data["stock_quantity"], 5)
+        self.assertEqual(response.data["requested_quantity"], 3)
+
+    def test_check_stock_insufficient(self):
+        self.client.force_authenticate(self.user)
+        product = Product.objects.create(
+            store=self.store,
+            name="Low",
+            sku="CHK-LOW",
+            price=Decimal("10.00"),
+            currency="USD",
+            stock_quantity=2,
+        )
+        response = self.client.post(
+            f"/api/v1/products/{product.id}/check-stock/",
+            {"quantity": 5},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("quantity", response.data)
+
+    def test_check_stock_inactive_rejected(self):
+        self.client.force_authenticate(self.user)
+        product = Product.objects.create(
+            store=self.store,
+            name="Off",
+            sku="CHK-OFF",
+            price=Decimal("10.00"),
+            currency="USD",
+            stock_quantity=10,
+            is_active=False,
+        )
+        response = self.client.post(
+            f"/api/v1/products/{product.id}/check-stock/",
+            {"quantity": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_deactivate_product(self):
+        self.client.force_authenticate(self.user)
+        product = Product.objects.create(
+            store=self.store,
+            name="Live",
+            sku="DEACT-1",
+            price=Decimal("10.00"),
+            currency="USD",
+            stock_quantity=4,
+        )
+        response = self.client.delete(f"/api/v1/products/{product.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_active"])
+        product.refresh_from_db()
+        self.assertFalse(product.is_active)
+
+    def test_out_of_stock_filter(self):
+        self.client.force_authenticate(self.user)
+        Product.objects.create(
+            store=self.store,
+            name="Gone",
+            sku="OOS-1",
+            price=Decimal("1.00"),
+            currency="USD",
+            stock_quantity=0,
+        )
+        Product.objects.create(
+            store=self.store,
+            name="Has Stock",
+            sku="OOS-2",
+            price=Decimal("1.00"),
+            currency="USD",
+            stock_quantity=4,
+        )
+        response = self.client.get("/api/v1/products/?out_of_stock=true")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["sku"], "OOS-1")
+
+    def test_list_pagination(self):
+        self.client.force_authenticate(self.user)
+        for i in range(3):
+            Product.objects.create(
+                store=self.store,
+                name=f"Page item {i}",
+                sku=f"PAGE-{i}",
+                price=Decimal("1.00"),
+                currency="USD",
+            )
+        page1 = self.client.get("/api/v1/products/?page_size=2&ordering=sku")
+        self.assertEqual(page1.status_code, status.HTTP_200_OK)
+        self.assertEqual(page1.data["count"], 3)
+        self.assertEqual(len(page1.data["results"]), 2)
+        self.assertIsNotNone(page1.data["next"])
+        self.assertIsNone(page1.data["previous"])
+
+        page2 = self.client.get("/api/v1/products/?page_size=2&page=2&ordering=sku")
+        self.assertEqual(page2.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(page2.data["results"]), 1)
+        self.assertIsNone(page2.data["next"])
+        self.assertIsNotNone(page2.data["previous"])
+
+    def test_reactivate_via_patch(self):
+        self.client.force_authenticate(self.user)
+        product = Product.objects.create(
+            store=self.store,
+            name="Off",
+            sku="REACT-1",
+            price=Decimal("1.00"),
+            currency="USD",
+            stock_quantity=2,
+            is_active=False,
+        )
+        response = self.client.patch(
+            f"/api/v1/products/{product.id}/",
+            {"is_active": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_active"])
+
+

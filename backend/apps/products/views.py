@@ -11,6 +11,8 @@ from apps.products.serializers import (
     AdjustStockSerializer,
     Channel3SearchResponseSerializer,
     Channel3SearchSerializer,
+    CheckStockResponseSerializer,
+    CheckStockSerializer,
     ImportFromChannel3Serializer,
     InventoryAdjustmentSerializer,
     ProductCreateSerializer,
@@ -67,6 +69,8 @@ class ProductListCreateView(StoreScopedMixin, generics.ListCreateAPIView):
             qs = qs.filter(is_active=is_active == "true")
         if self.request.query_params.get("low_stock") == "true":
             qs = qs.filter(stock_quantity__lte=F("low_stock_threshold"))
+        if self.request.query_params.get("out_of_stock") == "true":
+            qs = qs.filter(stock_quantity=0)
         ordering = self.request.query_params.get("ordering") or "name"
         allowed = {
             "name",
@@ -138,6 +142,25 @@ class AdjustStockView(StoreScopedMixin, APIView):
         serializer.is_valid(raise_exception=True)
         adjustment = serializer.save()
         return Response(InventoryAdjustmentSerializer(adjustment).data, status=status.HTTP_201_CREATED)
+
+
+class CheckStockView(StoreScopedMixin, APIView):
+    """Product-side stock check for Orders (§2.4) to call before committing a line."""
+
+    @extend_schema(
+        tags=["products"],
+        summary="Check stock availability",
+        request=CheckStockSerializer,
+        responses={200: CheckStockResponseSerializer},
+    )
+    def post(self, request, pk):
+        product = generics.get_object_or_404(self.get_queryset(), pk=pk)
+        serializer = CheckStockSerializer(
+            data=request.data,
+            context={"request": request, "product": product},
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.save())
 
 
 class ProductAdjustmentsView(StoreScopedMixin, generics.ListAPIView):

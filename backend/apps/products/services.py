@@ -6,15 +6,19 @@ from apps.common.exceptions import ConflictError
 from apps.products.models import InventoryAdjustment, Product
 
 
+# Matches Product.image_url max_length — leave room for S3/CloudFront query strings.
+IMAGE_URL_MAX_LENGTH = 2048
+
+
 def sanitize_image_url(url: str | None) -> str:
     value = (url or "").strip()
     if not value:
         return ""
     try:
-        URLValidator()(value)
+        URLValidator(schemes=["http", "https"])(value)
     except ValidationError:
         return ""
-    return value[:200]
+    return value[:IMAGE_URL_MAX_LENGTH]
 
 
 @transaction.atomic
@@ -49,6 +53,35 @@ def deactivate_product(*, product: Product) -> Product:
     product.is_active = False
     product.save(update_fields=["is_active", "updated_at"])
     return product
+
+
+def check_stock(*, product: Product, quantity: int) -> dict:
+    """
+    Read-only pre-check that `quantity` could be sold right now.
+
+    This is NOT a stock reservation. §2.4 Orders must still lock the product
+    (`select_for_update`), re-validate, and deduct in the same transaction as
+    the order line — otherwise concurrent check-then-buy can oversell.
+    """
+    if quantity < 1:
+        raise ValidationError({"quantity": "Quantity must be at least 1."})
+    if not product.is_active:
+        raise ValidationError({"detail": "This product is inactive and cannot be sold."})
+    if product.stock_quantity < quantity:
+        raise ValidationError(
+            {
+                "quantity": (
+                    f"Insufficient stock. Only {product.stock_quantity} available."
+                )
+            }
+        )
+    return {
+        "product_id": product.pk,
+        "sku": product.sku,
+        "requested_quantity": quantity,
+        "stock_quantity": product.stock_quantity,
+        "available": True,
+    }
 
 
 @transaction.atomic

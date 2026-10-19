@@ -19,9 +19,4 @@ export type StoreCreateRequest = {
   business_type: BusinessType;
 };
 
-export type Paginated<T> = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-};
+export type { Paginated } from "@/lib/api/types";

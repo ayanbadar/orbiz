@@ -17,6 +17,7 @@ export class ProductService {
       params: {
         q: params.q || undefined,
         low_stock: params.low_stock ? "true" : undefined,
+        out_of_stock: params.out_of_stock ? "true" : undefined,
         is_active:
           params.is_active === undefined
             ? undefined
@@ -24,6 +25,7 @@ export class ProductService {
               ? "true"
               : "false",
         page: params.page,
+        page_size: params.page_size,
       },
     });
     return response.data;
