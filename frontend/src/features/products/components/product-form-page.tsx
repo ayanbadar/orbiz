@@ -152,7 +152,14 @@ export function ProductFormPage() {
             label="Price"
             error={form.formState.errors.price?.message}
           >
-            <Input className={inputClassName} {...form.register("price")} />
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              className={inputClassName}
+              {...form.register("price")}
+            />
           </FormField>
           {!isEdit ? (
             <FormField id="product-stock" label="Initial stock">
