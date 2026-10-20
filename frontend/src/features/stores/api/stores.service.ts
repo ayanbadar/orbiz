@@ -2,6 +2,7 @@ import type {
   Paginated,
   Store,
   StoreCreateRequest,
+  StoreUpdateRequest,
 } from "@/features/stores/types";
 import { api } from "@/lib/api";
 
@@ -21,6 +22,14 @@ export class StoreService {
 
   static async create(body: StoreCreateRequest): Promise<Store> {
     const response = await api.post<Store>(`${ROOT}/`, body);
+    return response.data;
+  }
+
+  static async update(
+    storeId: number,
+    body: StoreUpdateRequest,
+  ): Promise<Store> {
+    const response = await api.patch<Store>(`${ROOT}/${storeId}/`, body);
     return response.data;
   }
 

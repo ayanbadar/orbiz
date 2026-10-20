@@ -2,7 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { STORE_QUERY_KEYS } from "@/features/stores/api/stores.keys";
 import { StoreService } from "@/features/stores/api/stores.service";
-import type { StoreCreateRequest } from "@/features/stores/types";
+import type {
+  StoreCreateRequest,
+  StoreUpdateRequest,
+} from "@/features/stores/types";
 import { ApiError } from "@/lib/api";
 
 export function useStores() {
@@ -30,6 +33,21 @@ export function useCreateStore() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: StoreCreateRequest) => StoreService.create(body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: STORE_QUERY_KEYS.all });
+    },
+  });
+}
+
+export function useUpdateStore(storeId: number | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: StoreUpdateRequest) => {
+      if (storeId == null) {
+        throw new Error("Store id is required.");
+      }
+      return StoreService.update(storeId, body);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: STORE_QUERY_KEYS.all });
     },

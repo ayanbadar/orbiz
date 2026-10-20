@@ -19,4 +19,11 @@ export type StoreCreateRequest = {
   business_type: BusinessType;
 };
 
+export type StoreUpdateRequest = {
+  name?: string;
+  currency?: string;
+  timezone?: string;
+  business_type?: BusinessType;
+};
+
 export type { Paginated } from "@/lib/api/types";
