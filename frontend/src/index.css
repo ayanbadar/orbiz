@@ -12,7 +12,11 @@
   --color-primary-active: var(--primary-active);
   --color-body: var(--body);
   --color-positive: var(--positive);
+  --color-positive-deep: var(--positive-deep);
+  --color-warning: var(--warning);
   --color-warning-deep: var(--warning-deep);
+  --color-warning-content: var(--warning-content);
+  --color-negative-bg: var(--negative-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -75,7 +79,11 @@
   --ring: #163300;
   --body: #454745;
   --positive: #2ead4b;
+  --positive-deep: #054d28;
+  --warning: #ffd11a;
   --warning-deep: #b86700;
+  --warning-content: #4a3b1c;
+  --negative-bg: #320707;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -137,4 +145,29 @@
     @apply font-sans;
     font-feature-settings: "calt";
   }
+}
+
+.ag-cell-wrapper {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+.ag-cell-value {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+.ag-cell.products-status-cell {
+  overflow: visible;
+}
+
+.ag-cell.products-status-cell .ag-cell-wrapper,
+.ag-cell.products-status-cell .ag-cell-value {
+  overflow: visible;
+  min-width: 0;
 }

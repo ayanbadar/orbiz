@@ -1,13 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 
+import { FormField } from "@/components/form-field";
+import { PageBackLink } from "@/components/page-back-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -33,6 +33,9 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+const inputClassName =
+  "h-12 rounded-xl border-foreground bg-card px-4 text-base";
 
 export function ProductFormPage() {
   const { id } = useParams();
@@ -111,45 +114,68 @@ export function ProductFormPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <header className="space-y-1">
-        <Link to={ROUTES.products.root()} className="text-sm font-semibold underline-offset-4 hover:underline">
-          ← Products
-        </Link>
+      <header className="space-y-3">
+        <PageBackLink to={ROUTES.products.root()}>Products</PageBackLink>
         <h1 className="text-[32px] font-semibold tracking-tight text-foreground">
           {isEdit ? "Edit product" : "Add product"}
         </h1>
       </header>
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-[24px] bg-card p-6">
-        <Field label="Name" error={form.formState.errors.name?.message}>
-          <Input {...form.register("name")} />
-        </Field>
-        <Field label="SKU" error={form.formState.errors.sku?.message}>
-          <Input {...form.register("sku")} disabled={isEdit} />
-        </Field>
-        <Field label="Description">
-          <Input {...form.register("description")} />
-        </Field>
+      <form
+        onSubmit={onSubmit}
+        className="space-y-4 rounded-[24px] bg-card p-6"
+      >
+        <FormField
+          id="product-name"
+          label="Name"
+          error={form.formState.errors.name?.message}
+        >
+          <Input className={inputClassName} {...form.register("name")} />
+        </FormField>
+        <FormField
+          id="product-sku"
+          label="SKU"
+          error={form.formState.errors.sku?.message}
+        >
+          <Input
+            className={inputClassName}
+            disabled={isEdit}
+            {...form.register("sku")}
+          />
+        </FormField>
+        <FormField id="product-description" label="Description">
+          <Input className={inputClassName} {...form.register("description")} />
+        </FormField>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Price" error={form.formState.errors.price?.message}>
-            <Input {...form.register("price")} />
-          </Field>
+          <FormField
+            id="product-price"
+            label="Price"
+            error={form.formState.errors.price?.message}
+          >
+            <Input className={inputClassName} {...form.register("price")} />
+          </FormField>
           {!isEdit ? (
-            <Field label="Initial stock">
+            <FormField id="product-stock" label="Initial stock">
               <Input
                 type="number"
+                className={inputClassName}
                 {...form.register("stock_quantity", { valueAsNumber: true })}
               />
-            </Field>
+            </FormField>
           ) : null}
-          <Field label="Low-stock threshold">
+          <FormField id="product-low-stock" label="Low-stock threshold">
             <Input
               type="number"
+              className={inputClassName}
               {...form.register("low_stock_threshold", { valueAsNumber: true })}
             />
-          </Field>
+          </FormField>
         </div>
-        <Field label="Image URL">
+        <FormField
+          id="product-image-url"
+          label="Image URL"
+          error={form.formState.errors.image_url?.message}
+        >
           <div className="flex flex-wrap items-start gap-3">
             <ProductImage
               src={imageUrl}
@@ -158,8 +184,18 @@ export function ProductFormPage() {
             />
             <div className="min-w-0 flex-1 space-y-1">
               <Input
-                {...form.register("image_url")}
+                id="product-image-url"
+                className={inputClassName}
                 placeholder="https://…"
+                aria-invalid={
+                  Boolean(form.formState.errors.image_url) || undefined
+                }
+                aria-describedby={
+                  form.formState.errors.image_url
+                    ? "product-image-url-error"
+                    : undefined
+                }
+                {...form.register("image_url")}
               />
               <p className="text-xs text-muted-foreground">
                 Public HTTPS URL for now (Channel3 or paste). Later, S3 uploads
@@ -167,41 +203,24 @@ export function ProductFormPage() {
               </p>
             </div>
           </div>
-        </Field>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...form.register("is_active")} />
+        </FormField>
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            id="product-is-active"
+            type="checkbox"
+            className="size-4"
+            {...form.register("is_active")}
+          />
           Active
         </label>
         <Button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="h-12 rounded-[24px] px-6 font-semibold"
+          className="h-12 rounded-[24px] px-6 text-base font-semibold"
         >
           {form.formState.isSubmitting ? "Saving…" : "Save product"}
         </Button>
       </form>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }

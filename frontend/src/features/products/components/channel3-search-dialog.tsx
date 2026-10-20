@@ -136,6 +136,7 @@ export function Channel3SearchDialog({ open, onOpenChange }: Props) {
           />
           <Button
             type="button"
+            className="h-12 rounded-[24px] px-6 text-base font-semibold"
             onClick={() => void onSearch()}
             disabled={search.isPending || !query.trim()}
           >
@@ -219,7 +220,7 @@ export function Channel3SearchDialog({ open, onOpenChange }: Props) {
             </div>
             <Button
               type="button"
-              className="rounded-[24px] font-semibold"
+              className="h-12 rounded-[24px] px-6 text-base font-semibold"
               disabled={importProduct.isPending || !canImport}
               onClick={() => void onImport()}
             >

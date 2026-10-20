@@ -5,9 +5,23 @@ import {
   type GridOptions,
 } from "ag-grid-community";
 import { AgGridProvider, AgGridReact } from "ag-grid-react";
-import type { ReactNode, Ref } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 import { cn } from "cn";
+
+export const GRID_ROW_HEIGHT_PX = 72;
+export const GRID_HEADER_HEIGHT_PX = 48;
+export const GRID_VIEWPORT_ROWS = 10;
+
+/** Pixel height for ~10 visible rows (header + rows). */
+export const GRID_VIEWPORT_HEIGHT_PX =
+  GRID_HEADER_HEIGHT_PX + GRID_VIEWPORT_ROWS * GRID_ROW_HEIGHT_PX;
+
+/** Inline height so AG Grid always gets a real viewport (Tailwind-safe). */
+export const gridViewportStyle: CSSProperties = {
+  height: `min(${GRID_VIEWPORT_HEIGHT_PX}px, 70vh)`,
+  minHeight: "16rem",
+};
 
 /** Orbiz-tuned Quartz theme — reuse for products, orders, analytics grids. */
 export const orbizGridTheme = themeQuartz.withParams({
@@ -27,7 +41,7 @@ export const orbizGridTheme = themeQuartz.withParams({
   oddRowBackgroundColor: "#ffffff",
   rowHoverColor: "#e2f6d5",
   selectedRowBackgroundColor: "#e2f6d5",
-  spacing: 8,
+  spacing: 12,
 });
 
 const COMMUNITY_MODULES = [AllCommunityModule];
@@ -50,8 +64,7 @@ type DataGridProps<TData> = {
   onRowClicked?: GridOptions<TData>["onRowClicked"];
   defaultColDef?: ColDef<TData>;
   className?: string;
-  /** Fixed height class; omit when using autoHeight via gridOptions. */
-  heightClassName?: string;
+  style?: CSSProperties;
   gridOptions?: GridOptions<TData>;
   gridRef?: Ref<AgGridReact<TData>>;
 };
@@ -67,12 +80,15 @@ export function DataGrid<TData>({
   onRowClicked,
   defaultColDef,
   className,
-  heightClassName = "min-h-[12rem]",
+  style,
   gridOptions,
   gridRef,
 }: DataGridProps<TData>) {
   return (
-    <div className={cn("w-full", heightClassName, className)}>
+    <div
+      className={cn("w-full", className)}
+      style={{ ...gridViewportStyle, ...style }}
+    >
       <AgGridReact<TData>
         ref={gridRef}
         theme={orbizGridTheme}
@@ -86,15 +102,19 @@ export function DataGrid<TData>({
           filter: true,
           floatingFilter: false,
           minWidth: 96,
+          cellStyle: {
+            display: "flex",
+            alignItems: "center",
+          },
           ...defaultColDef,
         }}
-        animateRows
+        animateRows={false}
         suppressCellFocus
         enableCellTextSelection
         ensureDomOrder
-        rowHeight={56}
-        headerHeight={40}
-        domLayout="autoHeight"
+        rowHeight={GRID_ROW_HEIGHT_PX}
+        headerHeight={GRID_HEADER_HEIGHT_PX}
+        domLayout="normal"
         {...gridOptions}
       />
     </div>

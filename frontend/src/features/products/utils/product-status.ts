@@ -19,18 +19,18 @@ export function getProductAvailabilityLabel(product: AvailabilitySlice): string 
   return "In stock";
 }
 
-/** Shared status color for list + detail — keep tone rules in one place. */
-export function getProductAvailabilityClassName(
+/** Pill classes per DESIGN.md badges (positive / warning / negative). */
+export function getProductAvailabilityBadgeClassName(
   product: AvailabilitySlice,
 ): string {
   if (!product.is_active) {
-    return "text-muted-foreground";
+    return "bg-secondary text-muted-foreground";
   }
   if (product.stock_quantity <= 0) {
-    return "text-destructive";
+    return "bg-negative-bg text-white";
   }
   if (product.is_low_stock) {
-    return "text-warning-deep";
+    return "bg-warning text-warning-content";
   }
-  return "text-positive";
+  return "bg-muted text-positive-deep";
 }

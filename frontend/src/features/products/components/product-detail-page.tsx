@@ -4,6 +4,8 @@ import { Link, useParams } from "react-router-dom";
 import { z } from "zod";
 import { cn } from "cn";
 
+import { FormField } from "@/components/form-field";
+import { PageBackLink } from "@/components/page-back-link";
 import { QueryState } from "@/components/query-state";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -29,10 +30,7 @@ import {
   useProductAdjustments,
 } from "@/features/products/api/products.api";
 import { ProductImage } from "@/features/products/components/product-image";
-import {
-  getProductAvailabilityClassName,
-  getProductAvailabilityLabel,
-} from "@/features/products/utils/product-status";
+import { ProductAvailabilityBadge } from "@/features/products/components/product-availability-badge";
 
 const adjustSchema = z.object({
   delta: z
@@ -43,6 +41,9 @@ const adjustSchema = z.object({
 });
 
 type AdjustValues = z.infer<typeof adjustSchema>;
+
+const inputClassName =
+  "h-12 rounded-xl border-foreground bg-card px-4 text-base";
 
 export function ProductDetailPage() {
   const { id } = useParams();
@@ -99,13 +100,8 @@ export function ProductDetailPage() {
   const product = productQuery.data;
 
   return (
-    <div className="space-y-5">
-      <Link
-        to={ROUTES.products.root()}
-        className="text-sm font-semibold text-body underline-offset-4 hover:text-foreground hover:underline"
-      >
-        ← Products
-      </Link>
+    <div className="space-y-6">
+      <PageBackLink to={ROUTES.products.root()}>Products</PageBackLink>
 
       <QueryState
         isLoading={productQuery.isLoading}
@@ -145,14 +141,18 @@ export function ProductDetailPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button asChild variant="secondary" className="rounded-xl">
+                <Button
+                  asChild
+                  variant="secondary"
+                  className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                >
                   <Link to={ROUTES.products.edit(product.id)}>Edit</Link>
                 </Button>
                 {product.is_active ? (
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-xl"
+                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
                     disabled={deactivateProduct.isPending}
                     onClick={() => void onDeactivate()}
                   >
@@ -164,7 +164,7 @@ export function ProductDetailPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-xl"
+                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
                     disabled={activateProduct.isPending}
                     onClick={() => void onActivate()}
                   >
@@ -185,14 +185,15 @@ export function ProductDetailPage() {
                 value={String(product.low_stock_threshold)}
                 valueClassName="tabular-nums"
               />
-              <Stat
-                label="Status"
-                value={getProductAvailabilityLabel(product)}
-                valueClassName={getProductAvailabilityClassName(product)}
-              />
+              <Card size="sm" className="rounded-[24px] ring-0">
+                <CardHeader className="gap-2">
+                  <CardDescription>Status</CardDescription>
+                  <ProductAvailabilityBadge product={product} />
+                </CardHeader>
+              </Card>
             </div>
 
-            <Card className="max-w-md ring-border/80">
+            <Card className="max-w-md rounded-[24px] ring-0">
               <CardHeader>
                 <CardTitle>Adjust stock</CardTitle>
                 <CardDescription>
@@ -202,38 +203,32 @@ export function ProductDetailPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={onAdjust} className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="delta">Delta</Label>
+                  <FormField
+                    id="adjust-delta"
+                    label="Delta"
+                    error={form.formState.errors.delta?.message}
+                  >
                     <Input
-                      id="delta"
                       type="number"
-                      className="rounded-lg"
+                      className={inputClassName}
                       {...form.register("delta", { valueAsNumber: true })}
                     />
-                    {form.formState.errors.delta ? (
-                      <p className="text-sm text-destructive" role="alert">
-                        {form.formState.errors.delta.message}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">Reason</Label>
+                  </FormField>
+                  <FormField
+                    id="adjust-reason"
+                    label="Reason"
+                    error={form.formState.errors.reason?.message}
+                  >
                     <Input
-                      id="reason"
-                      className="rounded-lg"
+                      className={inputClassName}
                       placeholder="e.g. Received shipment"
                       {...form.register("reason")}
                     />
-                    {form.formState.errors.reason ? (
-                      <p className="text-sm text-destructive" role="alert">
-                        {form.formState.errors.reason.message}
-                      </p>
-                    ) : null}
-                  </div>
+                  </FormField>
                   <Button
                     type="submit"
                     disabled={adjustStock.isPending}
-                    className="rounded-xl font-semibold"
+                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
                   >
                     {adjustStock.isPending ? "Saving…" : "Apply adjustment"}
                   </Button>
@@ -252,7 +247,7 @@ export function ProductDetailPage() {
                   {(adjustmentsQuery.data ?? []).map((row) => (
                     <li
                       key={row.id}
-                      className="rounded-xl bg-card px-4 py-3 text-sm ring-1 ring-border/80"
+                      className="rounded-[24px] bg-card px-4 py-3 text-sm"
                     >
                       <span className="font-semibold tabular-nums">
                         {row.delta > 0 ? `+${row.delta}` : row.delta}
@@ -267,7 +262,7 @@ export function ProductDetailPage() {
               </QueryState>
             </section>
 
-            <Card className="ring-border/80">
+            <Card className="rounded-[24px] ring-0">
               <CardHeader>
                 <CardTitle>Recent order usage</CardTitle>
                 <CardDescription>
@@ -294,7 +289,7 @@ function Stat({
   valueClassName?: string;
 }) {
   return (
-    <Card size="sm" className="ring-border/80">
+    <Card size="sm" className="rounded-[24px] ring-0">
       <CardHeader className="gap-1">
         <CardDescription>{label}</CardDescription>
         <CardTitle className={cn("text-xl font-semibold", valueClassName)}>
