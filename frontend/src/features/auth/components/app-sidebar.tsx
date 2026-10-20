@@ -5,6 +5,7 @@ import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { SHELL_TOP_BAR_CLASS } from "@/features/auth/components/shell-layout";
+import { useCurrentStore } from "@/features/stores/api/stores.api";
 import { cn } from "cn";
 
 type NavItem = {
@@ -72,6 +73,9 @@ export function AppSidebar({
   onNavigate,
   className,
 }: AppSidebarProps) {
+  const storeQuery = useCurrentStore();
+  const store = storeQuery.data;
+
   return (
     <aside
       className={cn(
@@ -80,9 +84,7 @@ export function AppSidebar({
       )}
       aria-label="Workspace"
     >
-      <div
-        className={cn(SHELL_TOP_BAR_CLASS, "justify-between gap-2 px-4")}
-      >
+      <div className={cn(SHELL_TOP_BAR_CLASS, "justify-between gap-2 px-4")}>
         <NavLink
           to={ROUTES.products.root()}
           className="inline-flex"
@@ -103,6 +105,20 @@ export function AppSidebar({
           </Button>
         ) : null}
       </div>
+
+      {store ? (
+        <div className="space-y-0.5 px-4 pb-3">
+          <p
+            className="truncate text-sm font-semibold text-foreground"
+            title={store.name}
+          >
+            {store.name}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {store.currency}
+          </p>
+        </div>
+      ) : null}
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-3">
         {NAV_ITEMS.map((item) => (
