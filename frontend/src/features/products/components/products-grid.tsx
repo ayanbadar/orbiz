@@ -4,18 +4,16 @@ import type {
   RowClickedEvent,
   SortChangedEvent,
 } from "ag-grid-community";
-import { useCallback, useMemo } from "react";
+import { AgGridReact } from "ag-grid-react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DataGrid } from "@/components/data-grid";
 import { ROUTES } from "@/constants/routes";
+import { ProductAvailabilityBadge } from "@/features/products/components/product-availability-badge";
 import { ProductImage } from "@/features/products/components/product-image";
 import type { Product, ProductListOrdering } from "@/features/products/types";
-import {
-  getProductAvailabilityClassName,
-  getProductAvailabilityLabel,
-} from "@/features/products/utils/product-status";
-import { cn } from "cn";
+import { getProductAvailabilityLabel } from "@/features/products/utils/product-status";
 
 type Props = {
   products: Product[];
@@ -45,9 +43,12 @@ function StatusCell({ data }: ICellRendererParams<Product>) {
     return null;
   }
   return (
-    <span className={cn("font-medium", getProductAvailabilityClassName(data))}>
-      {getProductAvailabilityLabel(data)}
-    </span>
+    <div className="flex h-full items-center overflow-visible">
+      <ProductAvailabilityBadge
+        product={data}
+        className="whitespace-nowrap"
+      />
+    </div>
   );
 }
 
@@ -79,7 +80,16 @@ export function ProductsGrid({
   onOrderingChange,
 }: Props) {
   const navigate = useNavigate();
+  const gridRef = useRef<AgGridReact<Product>>(null);
   const { colId: sortColId, sort: sortDir } = parseOrdering(ordering);
+
+  useEffect(() => {
+    const api = gridRef.current?.api;
+    if (!api || products.length === 0) {
+      return;
+    }
+    api.ensureIndexVisible(0, "top");
+  }, [products]);
 
   const columnDefs = useMemo<ColDef<Product>[]>(
     () => [
@@ -90,7 +100,6 @@ export function ProductsGrid({
         minWidth: 220,
         cellRenderer: ProductCell,
         filter: "agTextColumnFilter",
-        // Keep row order from the API when this column is the active server sort.
         comparator: () => 0,
         sort: sortColId === "name" ? sortDir : undefined,
         initialSort: sortColId === "name" ? sortDir : undefined,
@@ -102,7 +111,6 @@ export function ProductsGrid({
         minWidth: 120,
         cellClass: "font-mono text-xs text-body",
         filter: "agTextColumnFilter",
-        // No backend ordering for SKU — client-sort current page only.
       },
       {
         headerName: "Price",
@@ -127,12 +135,14 @@ export function ProductsGrid({
       {
         headerName: "Status",
         colId: "status",
-        flex: 0.9,
-        minWidth: 120,
+        flex: 1.15,
+        minWidth: 168,
+        sortable: false,
+        filter: "agTextColumnFilter",
         valueGetter: ({ data }) =>
           data ? getProductAvailabilityLabel(data) : "",
         cellRenderer: StatusCell,
-        filter: "agTextColumnFilter",
+        cellClass: "products-status-cell",
       },
     ],
     [sortColId, sortDir],
@@ -170,6 +180,7 @@ export function ProductsGrid({
 
   return (
     <DataGrid<Product>
+      gridRef={gridRef}
       rowData={products}
       columnDefs={columnDefs}
       getRowId={(params) => String(params.data.id)}
@@ -177,8 +188,7 @@ export function ProductsGrid({
       gridOptions={{
         rowStyle: { cursor: "pointer" },
         onSortChanged,
-        enableCellTextSelection: true,
-        ensureDomOrder: true,
+        suppressOverlays: ["noRows"],
       }}
     />
   );

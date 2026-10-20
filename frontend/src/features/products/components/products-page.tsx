@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useDeferredValue, useState, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   parseAsBoolean,
@@ -24,7 +24,6 @@ import { ProductsGrid } from "@/features/products/components/products-grid";
 import type { ProductListOrdering } from "@/features/products/types";
 import { useCurrentStore } from "@/features/stores/api/stores.api";
 import { ApiError } from "@/lib/api";
-import { cn } from "cn";
 
 const PRODUCT_ORDERINGS = [
   "name",
@@ -49,6 +48,8 @@ export function ProductsPage() {
     page: parseAsInteger.withDefault(1),
     ordering: parseAsStringLiteral(PRODUCT_ORDERINGS).withDefault("name"),
   });
+  // Soften search typing without delaying filter chips.
+  const deferredQ = useDeferredValue(filters.q);
 
   const storeReady = Boolean(storeQuery.data);
   const storeMissing =
@@ -58,7 +59,7 @@ export function ProductsPage() {
 
   const productsQuery = useProducts(
     {
-      q: filters.q || undefined,
+      q: deferredQ || undefined,
       low_stock: filters.low_stock || undefined,
       out_of_stock: filters.out_of_stock || undefined,
       is_active: filters.is_active === null ? undefined : filters.is_active,
@@ -99,8 +100,12 @@ export function ProductsPage() {
   const showInitialLoading =
     (storeQuery.isLoading && !storeQuery.data) ||
     (productsQuery.isLoading && !productsQuery.data);
-  const isRefetching =
-    productsQuery.isFetching && !showInitialLoading;
+  const isRefetching = productsQuery.isFetching && !showInitialLoading;
+  const showEmpty =
+    !showInitialLoading &&
+    storeReady &&
+    rows.length === 0 &&
+    !productsQuery.isPlaceholderData;
 
   return (
     <div className="space-y-5">
@@ -119,13 +124,16 @@ export function ProductsPage() {
           <Button
             type="button"
             variant="secondary"
-            className="h-10 rounded-xl px-4 font-semibold"
+            className="h-12 rounded-[24px] px-6 text-base font-semibold"
             onClick={() => setChannel3Open(true)}
             disabled={!storeReady}
           >
             Search Channel3
           </Button>
-          <Button asChild className="h-10 rounded-xl px-4 font-semibold">
+          <Button
+            asChild
+            className="h-12 rounded-[24px] px-6 text-base font-semibold"
+          >
             <Link to={ROUTES.products.new()}>Add product</Link>
           </Button>
         </div>
@@ -198,28 +206,15 @@ export function ProductsPage() {
             ? productsQuery.error.message
             : "Failed to load products."
         }
-        isEmpty={!showInitialLoading && storeReady && rows.length === 0}
-        emptyMessage="No products yet. Add one manually or import from Channel3."
         onRetry={() => {
           void productsQuery.refetch();
         }}
       >
         <Card
           aria-busy={isRefetching || undefined}
-          className={cn(
-            "relative gap-0 py-0 ring-border/80 transition-opacity",
-            isRefetching && "opacity-70",
-          )}
+          className="relative gap-0 rounded-[24px] py-0 ring-0"
         >
-          {isRefetching ? (
-            <p
-              className="pointer-events-none absolute right-3 top-3 z-10 rounded-md bg-card/90 px-2 py-0.5 text-xs text-muted-foreground shadow-sm"
-              role="status"
-            >
-              Updating…
-            </p>
-          ) : null}
-          <CardContent className="p-0">
+          <CardContent className="relative p-0">
             <ProductsGrid
               products={rows}
               ordering={filters.ordering}
@@ -227,9 +222,18 @@ export function ProductsPage() {
                 void setFilters({ ordering, page: 1 });
               }}
             />
+            {showEmpty ? (
+              <p
+                className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-card px-4 text-center text-sm text-muted-foreground"
+                role="status"
+              >
+                No products match these filters. Add one manually or import from
+                Channel3.
+              </p>
+            ) : null}
           </CardContent>
           {showPagination ? (
-            <CardFooter className="justify-stretch border-border bg-card px-4 py-3">
+            <CardFooter className="justify-stretch border-t border-border bg-card px-4 py-3">
               <Pagination
                 className="w-full"
                 page={filters.page}
