@@ -4,6 +4,7 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 
+import { DataGridProvider } from "@/components/data-grid";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/features/auth/context/auth-context";
@@ -23,7 +24,9 @@ export function AppProviders({ children }: AppProvidersProps) {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <NuqsAdapter>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <DataGridProvider>{children}</DataGridProvider>
+            </AuthProvider>
           </NuqsAdapter>
         </BrowserRouter>
         <ReactQueryDevtools initialIsOpen={false} />

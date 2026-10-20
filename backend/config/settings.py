@@ -38,8 +38,11 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
+    "apps.common",
     "apps.accounts",
     "apps.notifications",
+    "apps.stores",
+    "apps.products",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -136,6 +139,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "apps.common.exception_handler.custom_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -146,7 +150,11 @@ REST_FRAMEWORK = {
         "user": "300/minute",
         "auth": "10/minute",
         "password": "5/minute",
+        "writes": "60/minute",
+        "channel3": "30/minute",
     },
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
+    "PAGE_SIZE": 20,
 }
 
 SIMPLE_JWT = {
@@ -166,12 +174,19 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
     "SECURITY": [{"bearerAuth": []}],
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
-    "TAGS": [{"name": "auth", "description": "Sign in, profile, and password management."}],
+    "TAGS": [
+        {"name": "auth", "description": "Sign in, profile, and password management."},
+        {"name": "stores", "description": "Store workspaces and membership."},
+        {"name": "products", "description": "Catalog, inventory, and Channel3 enrichment."},
+    ],
 }
 
 FRONTEND_URL = env("FRONTEND_URL")
 EMAIL_BACKEND = env("EMAIL_BACKEND")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+CHANNEL3_API_KEY = env("CHANNEL3_API_KEY", default="")
+CHANNEL3_BASE_URL = env("CHANNEL3_BASE_URL", default="https://api.trychannel3.com")
 
 # Celery (namespace CELERY_*)
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")

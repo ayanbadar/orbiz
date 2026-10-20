@@ -13,6 +13,10 @@ import {
 import { SignInPage } from "@/features/auth/components/sign-in-page";
 import { SignUpPage } from "@/features/auth/components/sign-up-page";
 import { DemoPage } from "@/features/demo/components/demo-page";
+import { ProductDetailPage } from "@/features/products/components/product-detail-page";
+import { ProductFormPage } from "@/features/products/components/product-form-page";
+import { ProductsPage } from "@/features/products/components/products-page";
+import { StoreOnboardingPage } from "@/features/stores/components/store-onboarding-page";
 
 export function App() {
   return (
@@ -49,6 +53,56 @@ export function App() {
           <RequireAuth>
             <AppShell>
               <AccountPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.stores.onboarding()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <StoreOnboardingPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.products.root()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProductsPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.products.new()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProductFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.products.edit(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProductFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.products.detail(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <ProductDetailPage />
             </AppShell>
           </RequireAuth>
         }

@@ -263,14 +263,26 @@ class AuthApiTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(second.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
-    def test_schema_and_health_are_public(self):
-        schema = self.client.get("/api/schema/", HTTP_ACCEPT="application/json")
-        docs = self.client.get("/api/schema/swagger-ui/")
+    def test_health_is_public_and_schema_requires_auth_outside_debug(self):
         health = self.client.get("/health/")
-        self.assertEqual(schema.status_code, status.HTTP_200_OK)
-        self.assertIn(b"/api/v1/auth/login/", schema.content)
-        self.assertEqual(docs.status_code, status.HTTP_200_OK)
         self.assertEqual(health.status_code, status.HTTP_200_OK)
+
+        schema = self.client.get("/api/schema/", HTTP_ACCEPT="application/json")
+        docs = self.client.get("/api/docs/")
+        self.assertEqual(schema.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(docs.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.force_authenticate(self.user)
+        schema_auth = self.client.get("/api/schema/", HTTP_ACCEPT="application/json")
+        self.assertEqual(schema_auth.status_code, status.HTTP_200_OK)
+        self.assertIn(b"/api/v1/auth/login/", schema_auth.content)
+
+    @override_settings(DEBUG=True)
+    def test_schema_is_public_when_debug(self):
+        schema = self.client.get("/api/schema/", HTTP_ACCEPT="application/json")
+        docs = self.client.get("/api/docs/")
+        self.assertEqual(schema.status_code, status.HTTP_200_OK)
+        self.assertEqual(docs.status_code, status.HTTP_200_OK)
 
     def test_logout_rejects_another_users_refresh_token(self):
         other = User.objects.create_user(email="other@example.com", password=PASSWORD, first_name="Other")

@@ -12,6 +12,18 @@ export const ROUTES = {
   resetPassword: () => joinPath(ROUTES.root(), "reset-password"),
   account: () => joinPath(ROUTES.root(), "account"),
 
+  stores: {
+    onboarding: () => joinPath(ROUTES.root(), "stores", "onboarding"),
+  },
+
+  products: {
+    root: () => joinPath(ROUTES.root(), "products"),
+    new: () => joinPath(ROUTES.products.root(), "new"),
+    detail: (id: number | string) => joinPath(ROUTES.products.root(), String(id)),
+    edit: (id: number | string) =>
+      joinPath(ROUTES.products.root(), String(id), "edit"),
+  },
+
   demo: {
     root: () => joinPath(ROUTES.root(), "demo"),
   },
