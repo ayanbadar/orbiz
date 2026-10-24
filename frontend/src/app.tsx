@@ -13,6 +13,9 @@ import {
 import { SignInPage } from "@/features/auth/components/sign-in-page";
 import { SignUpPage } from "@/features/auth/components/sign-up-page";
 import { DemoPage } from "@/features/demo/components/demo-page";
+import { OrderDetailPage } from "@/features/orders/components/order-detail-page";
+import { OrderFormPage } from "@/features/orders/components/order-form-page";
+import { OrdersPage } from "@/features/orders/components/orders-page";
 import { ProductDetailPage } from "@/features/products/components/product-detail-page";
 import { ProductFormPage } from "@/features/products/components/product-form-page";
 import { ProductsPage } from "@/features/products/components/products-page";
@@ -63,6 +66,46 @@ export function App() {
           <RequireAuth>
             <AppShell>
               <StoreOnboardingPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.orders.root()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <OrdersPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.orders.new()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <OrderFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.orders.edit(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <OrderFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.orders.detail(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <OrderDetailPage />
             </AppShell>
           </RequireAuth>
         }

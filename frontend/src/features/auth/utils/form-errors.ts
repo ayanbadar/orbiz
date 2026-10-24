@@ -1,7 +1,11 @@
 import type { FieldPath, FieldValues, UseFormSetError } from "react-hook-form";
 
 import { ApiError } from "@/lib/api";
-import { readFieldErrors } from "@/lib/api/errors";
+import {
+  isGenericHttpErrorMessage,
+  readApiErrorMessage,
+  readFieldErrors,
+} from "@/lib/api/errors";
 
 const FIELD_MAP: Record<string, string> = {
   email: "email",
@@ -26,6 +30,11 @@ const FIELD_MAP: Record<string, string> = {
   business_type: "business_type",
   delta: "delta",
   reason: "reason",
+  customer_id: "customer_id",
+  lines: "lines",
+  delivery_notes: "delivery_notes",
+  internal_notes: "internal_notes",
+  source_message: "source_message",
 };
 
 export function applyFieldErrors<T extends FieldValues>(
@@ -48,8 +57,20 @@ export function applyFieldErrors<T extends FieldValues>(
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError && error.message.trim()) {
-    return error.message;
+  if (error instanceof ApiError) {
+    const message = error.message.trim();
+    if (message && !isGenericHttpErrorMessage(message)) {
+      return message;
+    }
+    const fromDetails = readApiErrorMessage(error.details)?.trim();
+    if (fromDetails && !isGenericHttpErrorMessage(fromDetails)) {
+      return fromDetails;
+    }
+  } else if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message && !isGenericHttpErrorMessage(message)) {
+      return message;
+    }
   }
   return fallback;
 }

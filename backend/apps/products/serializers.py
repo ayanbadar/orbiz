@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.common.exceptions import ApplicationError, BadGatewayError, ServiceUnavailableError
+from apps.common.serializers import require_nonempty_name
 from apps.products.channel3 import Channel3Error, Channel3NotConfigured, retrieve_product, search_products
 from apps.products.models import InventoryAdjustment, Product
 from apps.products.services import (
@@ -76,10 +77,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_name(self, value: str) -> str:
-        name = value.strip()
-        if not name:
-            raise serializers.ValidationError("Enter a product name.")
-        return name
+        return require_nonempty_name(value, message="Enter a product name.")
 
     def validate_sku(self, value: str) -> str:
         sku = value.strip().upper()
@@ -116,10 +114,7 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_name(self, value: str) -> str:
-        name = value.strip()
-        if not name:
-            raise serializers.ValidationError("Enter a product name.")
-        return name
+        return require_nonempty_name(value, message="Enter a product name.")
 
     def validate_sku(self, value: str) -> str:
         sku = value.strip().upper()
@@ -240,6 +235,15 @@ class Channel3ResultSerializer(serializers.Serializer):
 class Channel3SearchResponseSerializer(serializers.Serializer):
     results = Channel3ResultSerializer(many=True)
     next_page_token = serializers.CharField(allow_null=True, required=False)
+
+
+class ProductOrderUsageSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    order_number = serializers.CharField()
+    quantity = serializers.IntegerField()
+    line_total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    fulfilment_status = serializers.CharField()
+    created_at = serializers.DateTimeField()
 
 
 class ImportFromChannel3Serializer(serializers.Serializer):

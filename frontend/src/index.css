@@ -162,12 +162,13 @@
   min-width: 0;
 }
 
-.ag-cell.products-status-cell {
+/* Status pills in AG Grid — keep chips from clipping (products + orders). */
+.ag-cell.status-badge-cell {
   overflow: visible;
 }
 
-.ag-cell.products-status-cell .ag-cell-wrapper,
-.ag-cell.products-status-cell .ag-cell-value {
+.ag-cell.status-badge-cell .ag-cell-wrapper,
+.ag-cell.status-badge-cell .ag-cell-value {
   overflow: visible;
   min-width: 0;
 }

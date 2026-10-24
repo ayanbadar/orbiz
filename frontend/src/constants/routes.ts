@@ -24,6 +24,14 @@ export const ROUTES = {
       joinPath(ROUTES.products.root(), String(id), "edit"),
   },
 
+  orders: {
+    root: () => joinPath(ROUTES.root(), "orders"),
+    new: () => joinPath(ROUTES.orders.root(), "new"),
+    detail: (id: number | string) => joinPath(ROUTES.orders.root(), String(id)),
+    edit: (id: number | string) =>
+      joinPath(ROUTES.orders.root(), String(id), "edit"),
+  },
+
   demo: {
     root: () => joinPath(ROUTES.root(), "demo"),
   },

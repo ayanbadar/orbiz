@@ -7,4 +7,8 @@ export const PRODUCT_QUERY_KEYS = {
   detail: (id: number) => [...PRODUCT_QUERY_KEYS.all, "detail", id] as const,
   adjustments: (id: number) =>
     [...PRODUCT_QUERY_KEYS.all, "adjustments", id] as const,
+  checkStock: (id: number, quantity: number) =>
+    [...PRODUCT_QUERY_KEYS.all, "check-stock", id, quantity] as const,
+  orderUsage: (id: number) =>
+    [...PRODUCT_QUERY_KEYS.all, "order-usage", id] as const,
 };

@@ -6,3 +6,11 @@ class ErrorEnvelopeSerializer(serializers.Serializer):
 
     detail = serializers.CharField()
     code = serializers.CharField(required=False)
+
+
+def require_nonempty_name(value: str, *, message: str = "Enter a name.") -> str:
+    """Shared trim + required name validation for create/update serializers."""
+    name = (value or "").strip()
+    if not name:
+        raise serializers.ValidationError(message)
+    return name

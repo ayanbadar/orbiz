@@ -69,13 +69,13 @@ class ProductApiTests(APITestCase):
 
         listed = self.client.get("/api/v1/products/")
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        results = listed.data["results"] if isinstance(listed.data, dict) else listed.data
-        self.assertEqual(len(results), 1)
+        self.assertIn("results", listed.data)
+        self.assertEqual(len(listed.data["results"]), 1)
 
         self.client.force_authenticate(self.other)
         other_list = self.client.get("/api/v1/products/")
-        other_results = other_list.data["results"] if isinstance(other_list.data, dict) else other_list.data
-        self.assertEqual(len(other_results), 0)
+        self.assertIn("results", other_list.data)
+        self.assertEqual(len(other_list.data["results"]), 0)
 
         foreign = self.client.get(f"/api/v1/products/{created.data['id']}/")
         self.assertEqual(foreign.status_code, status.HTTP_404_NOT_FOUND)
@@ -173,7 +173,8 @@ class ProductApiTests(APITestCase):
             low_stock_threshold=5,
         )
         response = self.client.get("/api/v1/products/?low_stock=true")
-        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertIn("results", response.data)
+        results = response.data["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["sku"], "LOW")
 
@@ -419,7 +420,8 @@ class ProductApiTests(APITestCase):
         )
         response = self.client.get("/api/v1/products/?out_of_stock=true")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertIn("results", response.data)
+        results = response.data["results"]
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["sku"], "OOS-1")
 

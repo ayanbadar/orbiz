@@ -67,6 +67,23 @@ export type InventoryAdjustment = {
   created_at: string;
 };
 
+export type StockCheckResult = {
+  product_id: number;
+  sku: string;
+  requested_quantity: number;
+  stock_quantity: number;
+  available: boolean;
+};
+
+export type ProductOrderUsage = {
+  order_id: number;
+  order_number: string;
+  quantity: number;
+  line_total: string;
+  fulfilment_status: string;
+  created_at: string;
+};
+
 export type Channel3Result = {
   channel3_product_id: string;
   title: string;

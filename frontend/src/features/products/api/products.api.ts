@@ -42,6 +42,14 @@ export function useProductAdjustments(id: number) {
   });
 }
 
+export function useProductOrderUsage(productId: number) {
+  return useQuery({
+    queryKey: PRODUCT_QUERY_KEYS.orderUsage(productId),
+    queryFn: () => ProductService.orderUsage(productId),
+    enabled: Number.isFinite(productId) && productId > 0,
+  });
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({

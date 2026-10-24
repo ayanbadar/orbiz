@@ -48,8 +48,8 @@ class StoreApiTests(APITestCase):
 
         listed = self.client.get("/api/v1/stores/")
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        results = listed.data["results"] if isinstance(listed.data, dict) else listed.data
-        self.assertEqual(len(results), 1)
+        self.assertIn("results", listed.data)
+        self.assertEqual(len(listed.data["results"]), 1)
 
         me = self.client.get("/api/v1/stores/me/")
         self.assertEqual(me.status_code, status.HTTP_200_OK)

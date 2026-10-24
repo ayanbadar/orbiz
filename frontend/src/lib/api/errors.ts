@@ -15,17 +15,32 @@ export function firstString(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Axios default when the response body had no usable message. */
+export function isGenericHttpErrorMessage(message: string): boolean {
+  return /^Request failed with status code \d+$/i.test(message.trim());
+}
+
 export function readApiErrorMessage(data: unknown): string | undefined {
+  if (Array.isArray(data)) {
+    return firstString(data);
+  }
+
   if (!data || typeof data !== "object") {
     return undefined;
   }
 
   const record = data as Record<string, unknown>;
-  return (
+  const topLevel =
     firstString(record.detail) ??
     firstString(record.message) ??
-    firstString(record.non_field_errors)
-  );
+    firstString(record.non_field_errors);
+  if (topLevel) {
+    return topLevel;
+  }
+
+  // DRF field errors e.g. { quantity: ["Insufficient stock…"] } — use the first.
+  const fields = readFieldErrors(data);
+  return Object.values(fields)[0];
 }
 
 export function readFieldErrors(data: unknown): Record<string, string> {

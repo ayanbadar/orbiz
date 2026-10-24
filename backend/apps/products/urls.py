@@ -8,6 +8,7 @@ from apps.products.views import (
     ProductAdjustmentsView,
     ProductDetailView,
     ProductListCreateView,
+    ProductOrderUsageView,
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
     path("<int:pk>/adjust-stock/", AdjustStockView.as_view(), name="product-adjust-stock"),
     path("<int:pk>/check-stock/", CheckStockView.as_view(), name="product-check-stock"),
     path("<int:pk>/adjustments/", ProductAdjustmentsView.as_view(), name="product-adjustments"),
+    path("<int:pk>/order-usage/", ProductOrderUsageView.as_view(), name="product-order-usage"),
 ]

@@ -142,7 +142,7 @@ export function ProductsGrid({
         valueGetter: ({ data }) =>
           data ? getProductAvailabilityLabel(data) : "",
         cellRenderer: StatusCell,
-        cellClass: "products-status-cell",
+        cellClass: "status-badge-cell",
       },
     ],
     [sortColId, sortDir],

@@ -5,7 +5,9 @@ import type {
   Product,
   ProductCreateRequest,
   ProductListParams,
+  ProductOrderUsage,
   ProductUpdateRequest,
+  StockCheckResult,
 } from "@/features/products/types";
 import { api } from "@/lib/api";
 
@@ -69,6 +71,24 @@ export class ProductService {
     >(`${ROOT}/${id}/adjustments/`);
     const data = response.data;
     return Array.isArray(data) ? data : data.results;
+  }
+
+  static async checkStock(
+    id: number,
+    quantity: number,
+  ): Promise<StockCheckResult> {
+    const response = await api.post<StockCheckResult>(
+      `${ROOT}/${id}/check-stock/`,
+      { quantity },
+    );
+    return response.data;
+  }
+
+  static async orderUsage(id: number): Promise<ProductOrderUsage[]> {
+    const response = await api.get<ProductOrderUsage[]>(
+      `${ROOT}/${id}/order-usage/`,
+    );
+    return response.data;
   }
 
   static async channel3Search(query: string): Promise<Channel3SearchResponse> {
