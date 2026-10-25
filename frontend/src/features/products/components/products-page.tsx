@@ -153,9 +153,9 @@ export function ProductsPage() {
     rows.length === 0 &&
     !productsQuery.isPlaceholderData;
   const hasActiveFilters = Boolean(
-    deferredQ ||
-      deferredName ||
-      deferredSku ||
+    filters.q ||
+      filters.name ||
+      filters.sku ||
       filters.low_stock ||
       filters.out_of_stock ||
       filters.in_stock ||
@@ -180,6 +180,23 @@ export function ProductsPage() {
         in_stock: filters.in_stock,
         is_active: filters.is_active,
       }),
+      page: 1,
+    });
+  };
+
+  const clearFilters = () => {
+    void setFilters({
+      q: "",
+      name: "",
+      sku: "",
+      low_stock: false,
+      out_of_stock: false,
+      in_stock: false,
+      is_active: null,
+      price_min: null,
+      price_max: null,
+      stock_min: null,
+      stock_max: null,
       page: 1,
     });
   };
@@ -217,6 +234,8 @@ export function ProductsPage() {
         onSearchChange={(q) => {
           void setFilters({ q, page: 1 });
         }}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
         filters={
           <>
             <FilterChip
@@ -291,8 +310,7 @@ export function ProductsPage() {
               className="max-w-sm text-center text-sm text-muted-foreground"
               role="status"
             >
-              No products match these filters. Clear search or chips to see
-              more.
+              No products match these filters.
             </p>
           ) : (
             <div className="max-w-sm space-y-3 text-center">

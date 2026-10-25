@@ -23,6 +23,14 @@ export const serverTextFilter = serverColumnFilter("agTextColumnFilter");
 export const serverNumberFilter = serverColumnFilter("agNumberColumnFilter");
 export const serverDateFilter = serverColumnFilter("agDateColumnFilter");
 
+/**
+ * Server/nuqs filters map to a single API param — AG Grid's default AND/OR
+ * dual-condition UI produces a combined model our URL layer cannot round-trip.
+ */
+export const SERVER_FILTER_PARAMS = {
+  maxNumConditions: 1,
+} as const;
+
 export function filterModelsEqual(
   a: FilterModel | null | undefined,
   b: FilterModel | null | undefined,
@@ -30,9 +38,39 @@ export function filterModelsEqual(
   return JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
 }
 
+type CombinedFilterModel = {
+  operator?: string;
+  conditions?: unknown[];
+};
+
+/** AG Grid promotes to `{ operator, conditions }` when maxNumConditions > 1. */
+export function unwrapSimpleFilterModel(model: unknown): unknown {
+  if (!model || typeof model !== "object") return model;
+  const combined = model as CombinedFilterModel;
+  if (!Array.isArray(combined.conditions) || combined.conditions.length === 0) {
+    return model;
+  }
+  for (const condition of combined.conditions) {
+    if (!condition || typeof condition !== "object") continue;
+    const row = condition as {
+      filter?: unknown;
+      filterTo?: unknown;
+      dateFrom?: unknown;
+      dateTo?: unknown;
+      type?: string | null;
+    };
+    if (row.type === "blank" || row.type === "notBlank") return condition;
+    if (typeof row.filter === "string" && row.filter.trim()) return condition;
+    if (typeof row.filter === "number") return condition;
+    if (row.dateFrom) return condition;
+  }
+  return combined.conditions[0];
+}
+
 export function isTextFilterModel(model: unknown): model is TextFilterModel {
   if (!model || typeof model !== "object") return false;
-  const typed = model as TextFilterModel;
+  const typed = model as TextFilterModel & CombinedFilterModel;
+  if (Array.isArray(typed.conditions)) return true;
   return typed.filterType === "text" || typed.filterType == null;
 }
 
@@ -40,21 +78,26 @@ export function isNumberFilterModel(
   model: unknown,
 ): model is NumberFilterModel {
   if (!model || typeof model !== "object") return false;
-  const typed = model as NumberFilterModel;
+  const typed = model as NumberFilterModel & CombinedFilterModel;
+  if (Array.isArray(typed.conditions)) return true;
   return typed.filterType === "number" || typed.filterType == null;
 }
 
 export function isDateFilterModel(model: unknown): model is DateFilterModel {
   if (!model || typeof model !== "object") return false;
-  const typed = model as DateFilterModel;
+  const typed = model as DateFilterModel & CombinedFilterModel;
+  if (Array.isArray(typed.conditions)) return true;
   return typed.filterType === "date" || typed.filterType == null;
 }
 
 /** Extract a non-empty text filter value (contains / equals / startsWith / …). */
 export function readTextFilterValue(model: unknown): string | null {
-  if (!isTextFilterModel(model)) return null;
-  if (model.type === "blank" || model.type === "notBlank") return null;
-  const value = model.filter?.trim();
+  const simple = unwrapSimpleFilterModel(model);
+  if (!simple || typeof simple !== "object") return null;
+  const typed = simple as TextFilterModel;
+  if (typed.filterType != null && typed.filterType !== "text") return null;
+  if (typed.type === "blank" || typed.type === "notBlank") return null;
+  const value = typed.filter?.trim();
   return value ? value : null;
 }
 
@@ -66,9 +109,10 @@ export type NumberRange = {
 /** Map AG Grid number filter ops onto inclusive min/max bounds for the API. */
 export function readNumberRange(model: unknown): NumberRange | null {
   if (!isNumberFilterModel(model)) return null;
-  const type = model.type ?? "equals";
-  const from = model.filter;
-  const to = model.filterTo;
+  const simple = unwrapSimpleFilterModel(model) as NumberFilterModel;
+  const type = simple.type ?? "equals";
+  const from = simple.filter;
+  const to = simple.filterTo;
 
   switch (type) {
     case "equals":
@@ -106,9 +150,10 @@ function dateOnly(value: string | null | undefined): string | null {
 /** Map AG Grid date filter ops onto created_after / created_before (YYYY-MM-DD). */
 export function readDateRange(model: unknown): DateRange | null {
   if (!isDateFilterModel(model)) return null;
-  const type = model.type ?? "equals";
-  const from = dateOnly(model.dateFrom);
-  const to = dateOnly(model.dateTo);
+  const simple = unwrapSimpleFilterModel(model) as DateFilterModel;
+  const type = simple.type ?? "equals";
+  const from = dateOnly(simple.dateFrom);
+  const to = dateOnly(simple.dateTo);
 
   switch (type) {
     case "equals":

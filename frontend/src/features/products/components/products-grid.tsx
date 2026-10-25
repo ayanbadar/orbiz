@@ -1,6 +1,7 @@
 import type {
   ColDef,
   FilterModel,
+  GridOptions,
   ICellRendererParams,
   RowClickedEvent,
   SortChangedEvent,
@@ -16,6 +17,7 @@ import { ProductImage } from "@/features/products/components/product-image";
 import type { Product, ProductListOrdering } from "@/features/products/types";
 import { getProductAvailabilityLabel } from "@/features/products/utils/product-status";
 import {
+  SERVER_FILTER_PARAMS,
   serverNumberFilter,
   serverTextFilter,
 } from "@/lib/ag-grid-server-filter";
@@ -151,6 +153,7 @@ export function ProductsGrid({
         sortable: false,
         filter: serverTextFilter,
         filterParams: {
+          ...SERVER_FILTER_PARAMS,
           filterOptions: ["equals", "contains"],
           defaultOption: "equals",
         },
@@ -163,12 +166,20 @@ export function ProductsGrid({
     [sortColId, sortDir],
   );
 
-  const onRowClicked = (event: RowClickedEvent<Product>) => {
-    const id = event.data?.id;
-    if (id != null) {
-      void navigate(ROUTES.products.detail(id));
-    }
-  };
+  const getRowId = useCallback(
+    (params: { data: Product }) => String(params.data.id),
+    [],
+  );
+
+  const onRowClicked = useCallback(
+    (event: RowClickedEvent<Product>) => {
+      const id = event.data?.id;
+      if (id != null) {
+        void navigate(ROUTES.products.detail(id));
+      }
+    },
+    [navigate],
+  );
 
   const onSortChanged = useCallback(
     (event: SortChangedEvent<Product>) => {
@@ -193,20 +204,25 @@ export function ProductsGrid({
     [onOrderingChange, ordering],
   );
 
+  const gridOptions = useMemo(
+    (): GridOptions<Product> => ({
+      rowStyle: { cursor: "pointer" },
+      onSortChanged,
+      suppressOverlays: ["noRows"],
+    }),
+    [onSortChanged],
+  );
+
   return (
     <DataGrid<Product>
       gridRef={gridRef}
       rowData={products}
       columnDefs={columnDefs}
-      getRowId={(params) => String(params.data.id)}
+      getRowId={getRowId}
       onRowClicked={onRowClicked}
       filterModel={filterModel}
       onFilterModelChange={onFilterModelChange}
-      gridOptions={{
-        rowStyle: { cursor: "pointer" },
-        onSortChanged,
-        suppressOverlays: ["noRows"],
-      }}
+      gridOptions={gridOptions}
     />
   );
 }

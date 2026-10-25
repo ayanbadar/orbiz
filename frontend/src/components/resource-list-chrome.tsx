@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import {
@@ -5,6 +6,7 @@ import {
   Pagination,
 } from "@/components/pagination";
 import { QueryState } from "@/components/query-state";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -16,6 +18,9 @@ type ResourceListChromeProps = {
   searchPlaceholder: string;
   onSearchChange: (value: string) => void;
   filters?: ReactNode;
+  /** When true, shows a Clear filters control next to chips/search. */
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
   isLoading: boolean;
   isError: boolean;
   errorMessage?: string;
@@ -42,6 +47,8 @@ export function ResourceListChrome({
   searchPlaceholder,
   onSearchChange,
   filters,
+  hasActiveFilters = false,
+  onClearFilters,
   isLoading,
   isError,
   errorMessage,
@@ -69,13 +76,40 @@ export function ResourceListChrome({
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <Input
-          value={searchValue}
-          placeholder={searchPlaceholder}
-          className="h-9 w-full max-w-sm rounded-lg bg-card sm:flex-1"
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
-        {filters ? <div className="flex flex-wrap gap-2">{filters}</div> : null}
+        <div className="relative w-full max-w-sm sm:flex-1">
+          <Input
+            value={searchValue}
+            placeholder={searchPlaceholder}
+            className="h-9 w-full rounded-lg bg-card pr-9"
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+          {searchValue ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={() => onSearchChange("")}
+            >
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+          ) : null}
+        </div>
+        {filters || (hasActiveFilters && onClearFilters) ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {filters}
+            {hasActiveFilters && onClearFilters ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg text-muted-foreground"
+                onClick={onClearFilters}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <QueryState
@@ -91,8 +125,17 @@ export function ResourceListChrome({
           <CardContent className="relative p-0">
             {children}
             {showEmpty && empty ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/80 p-6">
-                {empty}
+              // pointer-events-none so AG Grid filter popups (popupParent=body)
+              // stay clickable above this message layer.
+              // z-[1] stays under AG Grid filter popups (.ag-popup z-index: 1000).
+              <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-card/80 p-6">
+                <div
+                  className={
+                    hasActiveFilters ? undefined : "pointer-events-auto"
+                  }
+                >
+                  {empty}
+                </div>
               </div>
             ) : null}
           </CardContent>

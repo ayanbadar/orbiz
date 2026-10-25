@@ -1,6 +1,7 @@
 import type {
   ColDef,
   FilterModel,
+  GridOptions,
   ICellRendererParams,
   RowClickedEvent,
   SortChangedEvent,
@@ -21,6 +22,7 @@ import {
 } from "@/features/orders/utils/order-status";
 import { formatRelativeTime } from "@/lib/format-datetime";
 import {
+  SERVER_FILTER_PARAMS,
   serverDateFilter,
   serverNumberFilter,
   serverTextFilter,
@@ -155,6 +157,7 @@ export function OrdersGrid({
         sortable: false,
         filter: serverTextFilter,
         filterParams: {
+          ...SERVER_FILTER_PARAMS,
           filterOptions: ["equals", "contains"],
           defaultOption: "equals",
         },
@@ -171,6 +174,7 @@ export function OrdersGrid({
         sortable: false,
         filter: serverTextFilter,
         filterParams: {
+          ...SERVER_FILTER_PARAMS,
           filterOptions: ["equals", "contains"],
           defaultOption: "equals",
         },
@@ -196,12 +200,20 @@ export function OrdersGrid({
     [sortColId, sortDir],
   );
 
-  const onRowClicked = (event: RowClickedEvent<OrderListItem>) => {
-    const id = event.data?.id;
-    if (id != null) {
-      void navigate(ROUTES.orders.detail(id));
-    }
-  };
+  const getRowId = useCallback(
+    (params: { data: OrderListItem }) => String(params.data.id),
+    [],
+  );
+
+  const onRowClicked = useCallback(
+    (event: RowClickedEvent<OrderListItem>) => {
+      const id = event.data?.id;
+      if (id != null) {
+        void navigate(ROUTES.orders.detail(id));
+      }
+    },
+    [navigate],
+  );
 
   const onSortChanged = useCallback(
     (event: SortChangedEvent<OrderListItem>) => {
@@ -226,20 +238,25 @@ export function OrdersGrid({
     [onOrderingChange, ordering],
   );
 
+  const gridOptions = useMemo(
+    (): GridOptions<OrderListItem> => ({
+      rowStyle: { cursor: "pointer" },
+      onSortChanged,
+      suppressOverlays: ["noRows"],
+    }),
+    [onSortChanged],
+  );
+
   return (
     <DataGrid<OrderListItem>
       gridRef={gridRef}
       rowData={orders}
       columnDefs={columnDefs}
-      getRowId={(params) => String(params.data.id)}
+      getRowId={getRowId}
       onRowClicked={onRowClicked}
       filterModel={filterModel}
       onFilterModelChange={onFilterModelChange}
-      gridOptions={{
-        rowStyle: { cursor: "pointer" },
-        onSortChanged,
-        suppressOverlays: ["noRows"],
-      }}
+      gridOptions={gridOptions}
     />
   );
 }

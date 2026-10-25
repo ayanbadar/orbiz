@@ -165,9 +165,9 @@ export function OrdersPage() {
     rows.length === 0 &&
     !ordersQuery.isPlaceholderData;
   const hasActiveFilters = Boolean(
-    deferredQ ||
-      deferredNumber ||
-      deferredCustomer ||
+    filters.q ||
+      filters.number ||
+      filters.customer_name ||
       filters.fulfilment_status ||
       filters.payment_status ||
       filters.total_min ||
@@ -179,6 +179,21 @@ export function OrdersPage() {
   const onFilterModelChange = (model: FilterModel) => {
     void setFilters({
       ...orderFilterModelToPatch(model),
+      page: 1,
+    });
+  };
+
+  const clearFilters = () => {
+    void setFilters({
+      q: "",
+      number: "",
+      customer_name: "",
+      fulfilment_status: null,
+      payment_status: null,
+      total_min: null,
+      total_max: null,
+      created_after: null,
+      created_before: null,
       page: 1,
     });
   };
@@ -204,6 +219,8 @@ export function OrdersPage() {
       onSearchChange={(q) => {
         void setFilters({ q, page: 1 });
       }}
+      hasActiveFilters={hasActiveFilters}
+      onClearFilters={clearFilters}
       filters={
         <>
           <FilterChip
@@ -259,8 +276,11 @@ export function OrdersPage() {
       showEmpty={showEmpty}
       empty={
         hasActiveFilters ? (
-          <p className="max-w-sm text-center text-sm text-muted-foreground" role="status">
-            No orders match these filters. Clear search or chips to see more.
+          <p
+            className="max-w-sm text-center text-sm text-muted-foreground"
+            role="status"
+          >
+            No orders match these filters.
           </p>
         ) : (
           <div className="max-w-sm space-y-3 text-center">
