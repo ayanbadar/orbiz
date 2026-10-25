@@ -1,12 +1,13 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
-from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.products.models import InventoryAdjustment, Product
+from apps.orders.services import recent_usage_for_product
 from apps.products.serializers import (
     AdjustStockSerializer,
     Channel3SearchResponseSerializer,
@@ -16,23 +17,34 @@ from apps.products.serializers import (
     ImportFromChannel3Serializer,
     InventoryAdjustmentSerializer,
     ProductCreateSerializer,
+    ProductOrderUsageSerializer,
     ProductSerializer,
     ProductUpdateSerializer,
 )
 from apps.products.services import deactivate_product
-from apps.stores.permissions import IsStoreMember
-from apps.stores.views import resolve_request_store
+from apps.stores.mixins import StoreScopedMixin
 
 
-class StoreScopedMixin:
-    permission_classes = [IsAuthenticated, IsStoreMember]
+def _parse_decimal(raw: str | None) -> Decimal | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return Decimal(raw)
+    except (InvalidOperation, TypeError):
+        return None
 
-    def initial(self, request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-        store = resolve_request_store(request)
-        if store is None:
-            raise NotFound("Create a store workspace before managing products.")
-        self.store = store
+
+def _parse_int(raw: str | None) -> int | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+class ProductStoreMixin(StoreScopedMixin):
+    missing_store_message = "Create a store workspace before managing products."
 
     def get_queryset(self):
         return Product.objects.filter(store=self.store)
@@ -42,7 +54,7 @@ class StoreScopedMixin:
     get=extend_schema(tags=["products"], summary="List products"),
     post=extend_schema(tags=["products"], summary="Create product", request=ProductCreateSerializer),
 )
-class ProductListCreateView(StoreScopedMixin, generics.ListCreateAPIView):
+class ProductListCreateView(ProductStoreMixin, generics.ListCreateAPIView):
     def get_throttles(self):
         if self.request.method == "POST":
             self.throttle_scope = "writes"
@@ -64,6 +76,12 @@ class ProductListCreateView(StoreScopedMixin, generics.ListCreateAPIView):
         q = self.request.query_params.get("q")
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(sku__icontains=q))
+        name = self.request.query_params.get("name")
+        if name:
+            qs = qs.filter(name__icontains=name)
+        sku = self.request.query_params.get("sku")
+        if sku:
+            qs = qs.filter(sku__icontains=sku)
         is_active = self.request.query_params.get("is_active")
         if is_active in {"true", "false"}:
             qs = qs.filter(is_active=is_active == "true")
@@ -71,6 +89,23 @@ class ProductListCreateView(StoreScopedMixin, generics.ListCreateAPIView):
             qs = qs.filter(stock_quantity__lte=F("low_stock_threshold"))
         if self.request.query_params.get("out_of_stock") == "true":
             qs = qs.filter(stock_quantity=0)
+        if self.request.query_params.get("in_stock") == "true":
+            qs = qs.filter(
+                is_active=True,
+                stock_quantity__gt=F("low_stock_threshold"),
+            )
+        price_min = _parse_decimal(self.request.query_params.get("price_min"))
+        if price_min is not None:
+            qs = qs.filter(price__gte=price_min)
+        price_max = _parse_decimal(self.request.query_params.get("price_max"))
+        if price_max is not None:
+            qs = qs.filter(price__lte=price_max)
+        stock_min = _parse_int(self.request.query_params.get("stock_min"))
+        if stock_min is not None:
+            qs = qs.filter(stock_quantity__gte=stock_min)
+        stock_max = _parse_int(self.request.query_params.get("stock_max"))
+        if stock_max is not None:
+            qs = qs.filter(stock_quantity__lte=stock_max)
         ordering = self.request.query_params.get("ordering") or "name"
         allowed = {
             "name",
@@ -98,7 +133,7 @@ class ProductListCreateView(StoreScopedMixin, generics.ListCreateAPIView):
     patch=extend_schema(tags=["products"], summary="Update product", request=ProductUpdateSerializer),
     delete=extend_schema(tags=["products"], summary="Deactivate product"),
 )
-class ProductDetailView(StoreScopedMixin, generics.RetrieveUpdateDestroyAPIView):
+class ProductDetailView(ProductStoreMixin, generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_serializer_class(self):
@@ -124,7 +159,7 @@ class ProductDetailView(StoreScopedMixin, generics.RetrieveUpdateDestroyAPIView)
         return Response(ProductSerializer(product).data)
 
 
-class AdjustStockView(StoreScopedMixin, APIView):
+class AdjustStockView(ProductStoreMixin, APIView):
     throttle_scope = "writes"
 
     @extend_schema(
@@ -144,7 +179,7 @@ class AdjustStockView(StoreScopedMixin, APIView):
         return Response(InventoryAdjustmentSerializer(adjustment).data, status=status.HTTP_201_CREATED)
 
 
-class CheckStockView(StoreScopedMixin, APIView):
+class CheckStockView(ProductStoreMixin, APIView):
     """Product-side stock check for Orders (§2.4) to call before committing a line."""
 
     @extend_schema(
@@ -163,7 +198,7 @@ class CheckStockView(StoreScopedMixin, APIView):
         return Response(serializer.save())
 
 
-class ProductAdjustmentsView(StoreScopedMixin, generics.ListAPIView):
+class ProductAdjustmentsView(ProductStoreMixin, generics.ListAPIView):
     serializer_class = InventoryAdjustmentSerializer
 
     @extend_schema(tags=["products"], summary="List stock adjustments")
@@ -178,7 +213,7 @@ class ProductAdjustmentsView(StoreScopedMixin, generics.ListAPIView):
         return InventoryAdjustment.objects.filter(product=product).select_related("created_by")
 
 
-class Channel3SearchView(StoreScopedMixin, APIView):
+class Channel3SearchView(ProductStoreMixin, APIView):
     throttle_scope = "channel3"
 
     @extend_schema(
@@ -194,7 +229,7 @@ class Channel3SearchView(StoreScopedMixin, APIView):
         return Response(data)
 
 
-class ImportFromChannel3View(StoreScopedMixin, APIView):
+class ImportFromChannel3View(ProductStoreMixin, APIView):
     throttle_scope = "writes"
 
     @extend_schema(
@@ -211,3 +246,17 @@ class ImportFromChannel3View(StoreScopedMixin, APIView):
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
         return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+
+
+class ProductOrderUsageView(ProductStoreMixin, APIView):
+    """Recent order lines for a product (product detail §2.5 hook)."""
+
+    @extend_schema(
+        tags=["products"],
+        summary="Recent order usage for product",
+        responses={200: ProductOrderUsageSerializer(many=True)},
+    )
+    def get(self, request, pk):
+        product = generics.get_object_or_404(self.get_queryset(), pk=pk)
+        payload = recent_usage_for_product(product=product)
+        return Response(ProductOrderUsageSerializer(payload, many=True).data)

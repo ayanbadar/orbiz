@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { z } from "zod";
 
@@ -15,6 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -43,8 +50,8 @@ type FormValues = z.infer<typeof schema>;
 const inputClassName =
   "h-12 rounded-xl border-foreground bg-card px-4 text-base";
 
-const selectClassName =
-  "flex h-12 w-full rounded-xl border border-foreground bg-card px-3 text-base";
+const selectTriggerClassName =
+  "h-12 w-full min-w-0 rounded-xl border-foreground bg-card px-3 text-base";
 
 /** Account workspace card — view/edit the current default store. */
 export function WorkspaceCard() {
@@ -163,16 +170,41 @@ export function WorkspaceCard() {
                   label="Business type"
                   error={form.formState.errors.business_type?.message}
                 >
-                  <select
-                    className={selectClassName}
-                    disabled={!canEdit}
-                    {...form.register("business_type")}
-                  >
-                    <option value="social">Social commerce</option>
-                    <option value="storefront">Online storefront</option>
-                    <option value="wholesale">Wholesale</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <Controller
+                    control={form.control}
+                    name="business_type"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={!canEdit}
+                      >
+                        <SelectTrigger
+                          id="workspace-business-type"
+                          className={selectTriggerClassName}
+                          aria-invalid={
+                            Boolean(form.formState.errors.business_type) ||
+                            undefined
+                          }
+                          aria-describedby={
+                            form.formState.errors.business_type
+                              ? "workspace-business-type-error"
+                              : undefined
+                          }
+                        >
+                          <SelectValue placeholder="Select business type…" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" align="start">
+                          <SelectItem value="social">Social commerce</SelectItem>
+                          <SelectItem value="storefront">
+                            Online storefront
+                          </SelectItem>
+                          <SelectItem value="wholesale">Wholesale</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </FormField>
                 {!canEdit ? (
                   <p className="text-sm text-muted-foreground">

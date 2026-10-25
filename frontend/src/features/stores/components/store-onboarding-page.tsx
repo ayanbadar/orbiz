@@ -1,11 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -97,16 +104,34 @@ export function StoreOnboardingPage() {
 
         <div className="space-y-2">
           <Label htmlFor="business_type">Business type</Label>
-          <select
-            id="business_type"
-            className="flex h-12 w-full rounded-[12px] border border-input bg-transparent px-3 text-sm"
-            {...form.register("business_type")}
-          >
-            <option value="social">Social commerce</option>
-            <option value="storefront">Online storefront</option>
-            <option value="wholesale">Wholesale</option>
-            <option value="other">Other</option>
-          </select>
+          <Controller
+            control={form.control}
+            name="business_type"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger
+                  id="business_type"
+                  className="h-12 w-full min-w-0 rounded-[12px] px-3 text-sm"
+                  aria-invalid={
+                    Boolean(form.formState.errors.business_type) || undefined
+                  }
+                >
+                  <SelectValue placeholder="Select business type…" />
+                </SelectTrigger>
+                <SelectContent position="popper" align="start">
+                  <SelectItem value="social">Social commerce</SelectItem>
+                  <SelectItem value="storefront">Online storefront</SelectItem>
+                  <SelectItem value="wholesale">Wholesale</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {form.formState.errors.business_type ? (
+            <p className="text-sm text-destructive" role="alert">
+              {form.formState.errors.business_type.message}
+            </p>
+          ) : null}
         </div>
 
         <Button

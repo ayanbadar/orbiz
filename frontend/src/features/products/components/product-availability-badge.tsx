@@ -1,5 +1,4 @@
-import { cn } from "cn";
-
+import { StatusBadge } from "@/components/status-badge";
 import type { Product } from "@/features/products/types";
 import {
   getProductAvailabilityBadgeClassName,
@@ -19,14 +18,11 @@ export function ProductAvailabilityBadge({
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold leading-none",
-        getProductAvailabilityBadgeClassName(product),
-        className,
-      )}
+    <StatusBadge
+      toneClassName={getProductAvailabilityBadgeClassName(product)}
+      className={className}
     >
       {getProductAvailabilityLabel(product)}
-    </span>
+    </StatusBadge>
   );
 }

@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.stores",
     "apps.products",
+    "apps.customers",
+    "apps.orders",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -178,6 +180,8 @@ SPECTACULAR_SETTINGS = {
         {"name": "auth", "description": "Sign in, profile, and password management."},
         {"name": "stores", "description": "Store workspaces and membership."},
         {"name": "products", "description": "Catalog, inventory, and Channel3 enrichment."},
+        {"name": "customers", "description": "Store customers linked to orders."},
+        {"name": "orders", "description": "Draft and confirmed orders, stock, and status."},
     ],
 }
 

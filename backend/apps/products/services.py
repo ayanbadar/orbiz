@@ -85,8 +85,26 @@ def check_stock(*, product: Product, quantity: int) -> dict:
 
 
 @transaction.atomic
-def adjust_stock(*, product: Product, delta: int, reason: str, user) -> InventoryAdjustment:
-    locked = Product.objects.select_for_update().get(pk=product.pk)
+def adjust_stock(
+    *,
+    product: Product,
+    delta: int,
+    reason: str,
+    user,
+    already_locked: bool = False,
+) -> InventoryAdjustment:
+    """
+    Mutate stock and write an InventoryAdjustment.
+
+    Pass already_locked=True when the caller holds select_for_update on this
+    product in the same transaction (e.g. order confirm/cancel) so we do not
+    re-lock and nest an extra savepoint.
+    """
+    locked = (
+        product
+        if already_locked
+        else Product.objects.select_for_update().get(pk=product.pk)
+    )
     before = locked.stock_quantity
     after = before + delta
     if after < 0:

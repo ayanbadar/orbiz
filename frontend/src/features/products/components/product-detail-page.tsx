@@ -4,7 +4,9 @@ import { Link, useParams } from "react-router-dom";
 import { z } from "zod";
 import { cn } from "cn";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormField } from "@/components/form-field";
+import { FormattedTime } from "@/components/formatted-time";
 import { PageBackLink } from "@/components/page-back-link";
 import { QueryState } from "@/components/query-state";
 import { Button } from "@/components/ui/button";
@@ -28,9 +30,11 @@ import {
   useDeactivateProduct,
   useProduct,
   useProductAdjustments,
+  useProductOrderUsage,
 } from "@/features/products/api/products.api";
 import { ProductImage } from "@/features/products/components/product-image";
 import { ProductAvailabilityBadge } from "@/features/products/components/product-availability-badge";
+import { getFulfilmentLabel } from "@/features/orders/utils/order-status";
 
 const adjustSchema = z.object({
   delta: z
@@ -48,8 +52,10 @@ const inputClassName =
 export function ProductDetailPage() {
   const { id } = useParams();
   const productId = Number(id);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const productQuery = useProduct(productId);
   const adjustmentsQuery = useProductAdjustments(productId);
+  const orderUsageQuery = useProductOrderUsage(productId);
   const adjustStock = useAdjustStock(productId);
   const deactivateProduct = useDeactivateProduct(productId);
   const activateProduct = useActivateProduct(productId);
@@ -71,13 +77,13 @@ export function ProductDetailPage() {
   });
 
   const onDeactivate = async () => {
-    if (
-      !window.confirm(
-        "Deactivate this product? It will stay in your catalog as inactive.",
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Deactivate this product?",
+      description: "It will stay in your catalog as inactive.",
+      confirmLabel: "Deactivate",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       await deactivateProduct.mutateAsync();
       toast.success("Product deactivated.");
@@ -101,6 +107,7 @@ export function ProductDetailPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageBackLink to={ROUTES.products.root()}>Products</PageBackLink>
 
       <QueryState
@@ -262,15 +269,58 @@ export function ProductDetailPage() {
               </QueryState>
             </section>
 
-            <Card className="rounded-[24px] ring-0">
-              <CardHeader>
-                <CardTitle>Recent order usage</CardTitle>
-                <CardDescription>
-                  Available after Orders (§2.4). Sales will show here once order
-                  lines reference this product.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">Recent order usage</h2>
+              <QueryState
+                isLoading={orderUsageQuery.isLoading}
+                isError={orderUsageQuery.isError}
+                errorMessage={
+                  orderUsageQuery.error instanceof Error
+                    ? orderUsageQuery.error.message
+                    : "Failed to load order usage."
+                }
+                onRetry={() => {
+                  void orderUsageQuery.refetch();
+                }}
+              >
+                {(orderUsageQuery.data ?? []).length === 0 ? (
+                  <Card className="rounded-[24px] ring-0">
+                    <CardHeader>
+                      <CardTitle>No sales yet</CardTitle>
+                      <CardDescription>
+                        Confirmed order lines for this product will show here.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                ) : (
+                  <ul className="space-y-2">
+                    {(orderUsageQuery.data ?? []).map((row) => (
+                      <li key={`${row.order_id}-${row.created_at}`}>
+                        <Link
+                          to={ROUTES.orders.detail(row.order_id)}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-[24px] bg-card px-4 py-3 text-sm ring-1 ring-border transition-colors hover:bg-muted/60"
+                        >
+                          <span className="font-semibold">{row.order_number}</span>
+                          <span className="text-muted-foreground">
+                            qty {row.quantity} ·{" "}
+                            {getFulfilmentLabel(
+                              row.fulfilment_status as Parameters<
+                                typeof getFulfilmentLabel
+                              >[0],
+                            )}
+                          </span>
+                          <FormattedTime
+                            value={row.created_at}
+                            variant="relative"
+                            className="text-xs text-muted-foreground"
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </QueryState>
+            </section>
           </>
         ) : null}
       </QueryState>

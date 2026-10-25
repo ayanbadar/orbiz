@@ -49,9 +49,16 @@ export type ProductListOrdering =
 
 export type ProductListParams = {
   q?: string;
+  name?: string;
+  sku?: string;
   low_stock?: boolean;
   out_of_stock?: boolean;
+  in_stock?: boolean;
   is_active?: boolean;
+  price_min?: string;
+  price_max?: string;
+  stock_min?: string;
+  stock_max?: string;
   page?: number;
   page_size?: number;
   ordering?: ProductListOrdering;
@@ -64,6 +71,23 @@ export type InventoryAdjustment = {
   quantity_after: number;
   reason: string;
   created_by_email: string | null;
+  created_at: string;
+};
+
+export type StockCheckResult = {
+  product_id: number;
+  sku: string;
+  requested_quantity: number;
+  stock_quantity: number;
+  available: boolean;
+};
+
+export type ProductOrderUsage = {
+  order_id: number;
+  order_number: string;
+  quantity: number;
+  line_total: string;
+  fulfilment_status: string;
   created_at: string;
 };
 

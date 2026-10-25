@@ -5,7 +5,9 @@ import type {
   Product,
   ProductCreateRequest,
   ProductListParams,
+  ProductOrderUsage,
   ProductUpdateRequest,
+  StockCheckResult,
 } from "@/features/products/types";
 import { api } from "@/lib/api";
 
@@ -16,14 +18,21 @@ export class ProductService {
     const response = await api.get<Paginated<Product>>(`${ROOT}/`, {
       params: {
         q: params.q || undefined,
+        name: params.name || undefined,
+        sku: params.sku || undefined,
         low_stock: params.low_stock ? "true" : undefined,
         out_of_stock: params.out_of_stock ? "true" : undefined,
+        in_stock: params.in_stock ? "true" : undefined,
         is_active:
           params.is_active === undefined
             ? undefined
             : params.is_active
               ? "true"
               : "false",
+        price_min: params.price_min || undefined,
+        price_max: params.price_max || undefined,
+        stock_min: params.stock_min || undefined,
+        stock_max: params.stock_max || undefined,
         page: params.page,
         page_size: params.page_size,
         ordering: params.ordering,
@@ -69,6 +78,24 @@ export class ProductService {
     >(`${ROOT}/${id}/adjustments/`);
     const data = response.data;
     return Array.isArray(data) ? data : data.results;
+  }
+
+  static async checkStock(
+    id: number,
+    quantity: number,
+  ): Promise<StockCheckResult> {
+    const response = await api.post<StockCheckResult>(
+      `${ROOT}/${id}/check-stock/`,
+      { quantity },
+    );
+    return response.data;
+  }
+
+  static async orderUsage(id: number): Promise<ProductOrderUsage[]> {
+    const response = await api.get<ProductOrderUsage[]>(
+      `${ROOT}/${id}/order-usage/`,
+    );
+    return response.data;
   }
 
   static async channel3Search(query: string): Promise<Channel3SearchResponse> {

@@ -104,7 +104,7 @@ Elevation is surface contrast, not shadow. The sage page holds white cards. Bord
 
 - The workspace canvas is sage. Summary cards, order detail, and the assistant draft are white cards on that canvas.
 - Page titles inside the app use `display-sm` or `display-xs`. Reserve `display-xl` and above for sign-in and the demo welcome.
-- Order and payment status use the semantic palette. Paid is positive green. Awaiting payment is warning. Failed or cancelled is negative. Do not paint "paid" with the lime CTA.
+- Order and payment status use the semantic palette. Paid is positive green. Unfulfilled / payment pending / in-progress fulfilment use warning. Failed or cancelled is negative. Do not paint "paid" with the lime CTA.
 - Sandbox payment callouts can use the dark card: ink surface, lime text, so the demo reads as a brand moment without looking like a live charge.
 - The assistant draft review uses the outlined input style inside a white card.
 - Below 768 px, stacks go to one column. From 768 px, grids can be two columns. From 1024 px, the app shell can sit beside a content grid.

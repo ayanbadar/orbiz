@@ -1,5 +1,7 @@
 import type {
   ColDef,
+  FilterModel,
+  GridOptions,
   ICellRendererParams,
   RowClickedEvent,
   SortChangedEvent,
@@ -14,11 +16,18 @@ import { ProductAvailabilityBadge } from "@/features/products/components/product
 import { ProductImage } from "@/features/products/components/product-image";
 import type { Product, ProductListOrdering } from "@/features/products/types";
 import { getProductAvailabilityLabel } from "@/features/products/utils/product-status";
+import {
+  SERVER_FILTER_PARAMS,
+  serverNumberFilter,
+  serverTextFilter,
+} from "@/lib/ag-grid-server-filter";
 
 type Props = {
   products: Product[];
   ordering: ProductListOrdering;
   onOrderingChange: (ordering: ProductListOrdering) => void;
+  filterModel: FilterModel;
+  onFilterModelChange: (model: FilterModel) => void;
 };
 
 /** Server `ordering` fields that map 1:1 to grid columns. */
@@ -78,6 +87,8 @@ export function ProductsGrid({
   products,
   ordering,
   onOrderingChange,
+  filterModel,
+  onFilterModelChange,
 }: Props) {
   const navigate = useNavigate();
   const gridRef = useRef<AgGridReact<Product>>(null);
@@ -99,7 +110,7 @@ export function ProductsGrid({
         flex: 2.4,
         minWidth: 220,
         cellRenderer: ProductCell,
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
         comparator: () => 0,
         sort: sortColId === "name" ? sortDir : undefined,
         initialSort: sortColId === "name" ? sortDir : undefined,
@@ -110,7 +121,7 @@ export function ProductsGrid({
         flex: 1,
         minWidth: 120,
         cellClass: "font-mono text-xs text-body",
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
       },
       {
         headerName: "Price",
@@ -118,7 +129,9 @@ export function ProductsGrid({
         flex: 0.9,
         minWidth: 110,
         cellRenderer: PriceCell,
-        filter: "agNumberColumnFilter",
+        filter: serverNumberFilter,
+        valueGetter: ({ data }) =>
+          data ? Number(data.price) : undefined,
         comparator: () => 0,
         sort: sortColId === "price" ? sortDir : undefined,
       },
@@ -128,7 +141,7 @@ export function ProductsGrid({
         flex: 0.7,
         minWidth: 88,
         cellClass: "tabular-nums",
-        filter: "agNumberColumnFilter",
+        filter: serverNumberFilter,
         comparator: () => 0,
         sort: sortColId === "stock_quantity" ? sortDir : undefined,
       },
@@ -138,22 +151,35 @@ export function ProductsGrid({
         flex: 1.15,
         minWidth: 168,
         sortable: false,
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
+        filterParams: {
+          ...SERVER_FILTER_PARAMS,
+          filterOptions: ["equals", "contains"],
+          defaultOption: "equals",
+        },
         valueGetter: ({ data }) =>
           data ? getProductAvailabilityLabel(data) : "",
         cellRenderer: StatusCell,
-        cellClass: "products-status-cell",
+        cellClass: "status-badge-cell",
       },
     ],
     [sortColId, sortDir],
   );
 
-  const onRowClicked = (event: RowClickedEvent<Product>) => {
-    const id = event.data?.id;
-    if (id != null) {
-      void navigate(ROUTES.products.detail(id));
-    }
-  };
+  const getRowId = useCallback(
+    (params: { data: Product }) => String(params.data.id),
+    [],
+  );
+
+  const onRowClicked = useCallback(
+    (event: RowClickedEvent<Product>) => {
+      const id = event.data?.id;
+      if (id != null) {
+        void navigate(ROUTES.products.detail(id));
+      }
+    },
+    [navigate],
+  );
 
   const onSortChanged = useCallback(
     (event: SortChangedEvent<Product>) => {
@@ -178,18 +204,25 @@ export function ProductsGrid({
     [onOrderingChange, ordering],
   );
 
+  const gridOptions = useMemo(
+    (): GridOptions<Product> => ({
+      rowStyle: { cursor: "pointer" },
+      onSortChanged,
+      suppressOverlays: ["noRows"],
+    }),
+    [onSortChanged],
+  );
+
   return (
     <DataGrid<Product>
       gridRef={gridRef}
       rowData={products}
       columnDefs={columnDefs}
-      getRowId={(params) => String(params.data.id)}
+      getRowId={getRowId}
       onRowClicked={onRowClicked}
-      gridOptions={{
-        rowStyle: { cursor: "pointer" },
-        onSortChanged,
-        suppressOverlays: ["noRows"],
-      }}
+      filterModel={filterModel}
+      onFilterModelChange={onFilterModelChange}
+      gridOptions={gridOptions}
     />
   );
 }
