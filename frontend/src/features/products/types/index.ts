@@ -49,9 +49,16 @@ export type ProductListOrdering =
 
 export type ProductListParams = {
   q?: string;
+  name?: string;
+  sku?: string;
   low_stock?: boolean;
   out_of_stock?: boolean;
+  in_stock?: boolean;
   is_active?: boolean;
+  price_min?: string;
+  price_max?: string;
+  stock_min?: string;
+  stock_max?: string;
   page?: number;
   page_size?: number;
   ordering?: ProductListOrdering;

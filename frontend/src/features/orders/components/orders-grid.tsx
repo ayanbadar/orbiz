@@ -1,5 +1,6 @@
 import type {
   ColDef,
+  FilterModel,
   ICellRendererParams,
   RowClickedEvent,
   SortChangedEvent,
@@ -19,11 +20,18 @@ import {
   getPaymentLabel,
 } from "@/features/orders/utils/order-status";
 import { formatRelativeTime } from "@/lib/format-datetime";
+import {
+  serverDateFilter,
+  serverNumberFilter,
+  serverTextFilter,
+} from "@/lib/ag-grid-server-filter";
 
 type Props = {
   orders: OrderListItem[];
   ordering: OrderListOrdering;
   onOrderingChange: (ordering: OrderListOrdering) => void;
+  filterModel: FilterModel;
+  onFilterModelChange: (model: FilterModel) => void;
 };
 
 const SERVER_SORT_FIELDS = new Set([
@@ -84,7 +92,13 @@ function parseOrdering(ordering: OrderListOrdering): {
 }
 
 /** Presentational AG Grid for the orders list — page owns fetching. */
-export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
+export function OrdersGrid({
+  orders,
+  ordering,
+  onOrderingChange,
+  filterModel,
+  onFilterModelChange,
+}: Props) {
   const navigate = useNavigate();
   const gridRef = useRef<AgGridReact<OrderListItem>>(null);
   const { colId: sortColId, sort: sortDir } = parseOrdering(ordering);
@@ -103,6 +117,7 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1.2,
         minWidth: 120,
         sortable: true,
+        filter: serverTextFilter,
         comparator: () => 0,
         sort: sortColId === "number" ? sortDir : undefined,
         initialSort: sortColId === "number" ? sortDir : undefined,
@@ -115,6 +130,7 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1.6,
         minWidth: 140,
         sortable: true,
+        filter: serverTextFilter,
         comparator: () => 0,
         sort: sortColId === "customer__name" ? sortDir : undefined,
       },
@@ -124,6 +140,9 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1,
         minWidth: 110,
         sortable: true,
+        filter: serverNumberFilter,
+        valueGetter: ({ data }) =>
+          data ? Number(data.total) : undefined,
         comparator: () => 0,
         sort: sortColId === "total" ? sortDir : undefined,
         cellRenderer: TotalCell,
@@ -134,10 +153,15 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1.4,
         minWidth: 168,
         sortable: false,
+        filter: serverTextFilter,
+        filterParams: {
+          filterOptions: ["equals", "contains"],
+          defaultOption: "equals",
+        },
+        valueGetter: ({ data }) =>
+          data ? getFulfilmentLabel(data.fulfilment_status) : "",
         cellRenderer: FulfilmentCell,
         cellClass: "status-badge-cell",
-        valueFormatter: (p) =>
-          p.data ? getFulfilmentLabel(p.data.fulfilment_status) : "",
       },
       {
         headerName: "Payment",
@@ -145,10 +169,15 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1.4,
         minWidth: 168,
         sortable: false,
+        filter: serverTextFilter,
+        filterParams: {
+          filterOptions: ["equals", "contains"],
+          defaultOption: "equals",
+        },
+        valueGetter: ({ data }) =>
+          data ? getPaymentLabel(data.payment_status) : "",
         cellRenderer: PaymentCell,
         cellClass: "status-badge-cell",
-        valueFormatter: (p) =>
-          p.data ? getPaymentLabel(p.data.payment_status) : "",
       },
       {
         headerName: "Created",
@@ -156,6 +185,7 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
         flex: 1.2,
         minWidth: 140,
         sortable: true,
+        filter: serverDateFilter,
         comparator: () => 0,
         sort: sortColId === "created_at" ? sortDir : undefined,
         cellRenderer: CreatedCell,
@@ -203,6 +233,8 @@ export function OrdersGrid({ orders, ordering, onOrderingChange }: Props) {
       columnDefs={columnDefs}
       getRowId={(params) => String(params.data.id)}
       onRowClicked={onRowClicked}
+      filterModel={filterModel}
+      onFilterModelChange={onFilterModelChange}
       gridOptions={{
         rowStyle: { cursor: "pointer" },
         onSortChanged,

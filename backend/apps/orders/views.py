@@ -1,4 +1,9 @@
+from datetime import datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import Exists, OuterRef, Prefetch, Q
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -16,6 +21,45 @@ from apps.orders.services import abandon_payment, cancel_order, confirm_order, m
 from apps.stores.mixins import StoreScopedMixin
 
 
+def _parse_decimal(raw: str | None) -> Decimal | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return Decimal(raw)
+    except (InvalidOperation, TypeError):
+        return None
+
+
+def _as_aware(value: datetime) -> datetime:
+    if timezone.is_naive(value):
+        return timezone.make_aware(value, timezone.get_current_timezone())
+    return value
+
+
+def _parse_day_start(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    parsed = parse_datetime(raw) or parse_date(raw)
+    if parsed is None:
+        return None
+    if isinstance(parsed, datetime):
+        return _as_aware(parsed)
+    return _as_aware(datetime.combine(parsed, time.min))
+
+
+def _parse_day_end_exclusive(raw: str | None) -> datetime | None:
+    """End bound exclusive: next calendar day at 00:00 when given a date-only string."""
+    if not raw:
+        return None
+    parsed_dt = parse_datetime(raw)
+    if parsed_dt is not None:
+        return _as_aware(parsed_dt)
+    parsed_date = parse_date(raw)
+    if parsed_date is None:
+        return None
+    return _as_aware(datetime.combine(parsed_date + timedelta(days=1), time.min))
+
+
 class OrderStoreMixin(StoreScopedMixin):
     missing_store_message = "Create a store workspace before managing orders."
 
@@ -28,7 +72,8 @@ class OrderStoreMixin(StoreScopedMixin):
                 Prefetch(
                     "events",
                     queryset=OrderEvent.objects.select_related("actor").order_by(
-                        "-created_at"
+                        "-created_at",
+                        "-id",
                     ),
                 ),
             )
@@ -76,12 +121,32 @@ class OrderListCreateView(OrderStoreMixin, generics.ListCreateAPIView):
                 | Q(customer__name__icontains=q)
                 | Exists(line_match)
             )
+        number = self.request.query_params.get("number")
+        if number:
+            qs = qs.filter(number__icontains=number)
+        customer_name = self.request.query_params.get("customer_name")
+        if customer_name:
+            qs = qs.filter(customer__name__icontains=customer_name)
         fulfilment = self.request.query_params.get("fulfilment_status")
         if fulfilment:
             qs = qs.filter(fulfilment_status=fulfilment)
         payment = self.request.query_params.get("payment_status")
         if payment:
             qs = qs.filter(payment_status=payment)
+        total_min = _parse_decimal(self.request.query_params.get("total_min"))
+        if total_min is not None:
+            qs = qs.filter(total__gte=total_min)
+        total_max = _parse_decimal(self.request.query_params.get("total_max"))
+        if total_max is not None:
+            qs = qs.filter(total__lte=total_max)
+        created_after = _parse_day_start(self.request.query_params.get("created_after"))
+        if created_after is not None:
+            qs = qs.filter(created_at__gte=created_after)
+        created_before = _parse_day_end_exclusive(
+            self.request.query_params.get("created_before")
+        )
+        if created_before is not None:
+            qs = qs.filter(created_at__lt=created_before)
         ordering = self.request.query_params.get("ordering") or "-created_at"
         allowed = {
             "created_at",

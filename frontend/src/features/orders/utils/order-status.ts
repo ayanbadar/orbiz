@@ -17,12 +17,44 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   cancelled: "Cancelled",
 };
 
+const FULFILMENT_STATUSES = Object.keys(
+  FULFILMENT_LABELS,
+) as FulfilmentStatus[];
+const PAYMENT_STATUSES = Object.keys(PAYMENT_LABELS) as PaymentStatus[];
+
 export function getFulfilmentLabel(status: FulfilmentStatus): string {
   return FULFILMENT_LABELS[status] ?? status;
 }
 
 export function getPaymentLabel(status: PaymentStatus): string {
   return PAYMENT_LABELS[status] ?? status;
+}
+
+/** Match status code or display label (case-insensitive). */
+export function parseFulfilmentStatus(
+  raw: string,
+): FulfilmentStatus | null {
+  const needle = raw.trim().toLowerCase();
+  if (!needle) return null;
+  const byCode = FULFILMENT_STATUSES.find((status) => status === needle);
+  if (byCode) return byCode;
+  return (
+    FULFILMENT_STATUSES.find(
+      (status) => FULFILMENT_LABELS[status].toLowerCase() === needle,
+    ) ?? null
+  );
+}
+
+export function parsePaymentStatus(raw: string): PaymentStatus | null {
+  const needle = raw.trim().toLowerCase();
+  if (!needle) return null;
+  const byCode = PAYMENT_STATUSES.find((status) => status === needle);
+  if (byCode) return byCode;
+  return (
+    PAYMENT_STATUSES.find(
+      (status) => PAYMENT_LABELS[status].toLowerCase() === needle,
+    ) ?? null
+  );
 }
 
 /** Pill classes per DESIGN.md — never use lime CTA for paid. */

@@ -178,6 +178,50 @@ class ProductApiTests(APITestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["sku"], "LOW")
 
+    def test_column_filters_name_sku_price_stock_in_stock(self):
+        self.client.force_authenticate(self.user)
+        Product.objects.create(
+            store=self.store,
+            name="Alpha Tee",
+            sku="ALP-1",
+            price=Decimal("12.00"),
+            currency="USD",
+            stock_quantity=30,
+            low_stock_threshold=5,
+        )
+        Product.objects.create(
+            store=self.store,
+            name="Beta Cap",
+            sku="BET-1",
+            price=Decimal("40.00"),
+            currency="USD",
+            stock_quantity=2,
+            low_stock_threshold=5,
+        )
+        by_name = self.client.get("/api/v1/products/", {"name": "alpha"})
+        self.assertEqual(len(by_name.data["results"]), 1)
+        self.assertEqual(by_name.data["results"][0]["sku"], "ALP-1")
+
+        by_sku = self.client.get("/api/v1/products/", {"sku": "BET"})
+        self.assertEqual(len(by_sku.data["results"]), 1)
+        self.assertEqual(by_sku.data["results"][0]["sku"], "BET-1")
+
+        by_price = self.client.get(
+            "/api/v1/products/", {"price_min": "10", "price_max": "20"}
+        )
+        skus = {row["sku"] for row in by_price.data["results"]}
+        self.assertEqual(skus, {"ALP-1"})
+
+        by_stock = self.client.get(
+            "/api/v1/products/", {"stock_min": "10", "stock_max": "50"}
+        )
+        skus = {row["sku"] for row in by_stock.data["results"]}
+        self.assertEqual(skus, {"ALP-1"})
+
+        in_stock = self.client.get("/api/v1/products/", {"in_stock": "true"})
+        skus = {row["sku"] for row in in_stock.data["results"]}
+        self.assertEqual(skus, {"ALP-1"})
+
     def test_list_query_count_bounded(self):
         self.client.force_authenticate(self.user)
         for i in range(8):

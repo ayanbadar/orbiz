@@ -6,7 +6,7 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 from apps.customers.models import Customer
-from apps.orders.models import Order
+from apps.orders.models import Order, OrderEvent
 from apps.products.models import InventoryAdjustment, Product
 from apps.stores.services import create_store_for_user
 
@@ -580,6 +580,27 @@ class OrderFlowPathTests(APITestCase):
         self.assertEqual(len(pending.data["results"]), 1)
         self.assertEqual(pending.data["results"][0]["id"], confirmed["id"])
 
+        by_number = self.client.get(
+            "/api/v1/orders/", {"number": draft["number"][-4:]}
+        )
+        self.assertEqual(len(by_number.data["results"]), 1)
+        self.assertEqual(by_number.data["results"][0]["id"], draft["id"])
+
+        by_customer_name = self.client.get(
+            "/api/v1/orders/", {"customer_name": "buy"}
+        )
+        self.assertGreaterEqual(len(by_customer_name.data["results"]), 1)
+
+        by_total = self.client.get(
+            "/api/v1/orders/",
+            {"total_min": "5", "total_max": "15"},
+        )
+        self.assertGreaterEqual(len(by_total.data["results"]), 1)
+        for row in by_total.data["results"]:
+            total = Decimal(row["total"])
+            self.assertGreaterEqual(total, Decimal("5"))
+            self.assertLessEqual(total, Decimal("15"))
+
         ordered = self.client.get("/api/v1/orders/", {"ordering": "number"})
         numbers = [row["number"] for row in ordered.data["results"]]
         self.assertEqual(numbers, sorted(numbers))
@@ -607,6 +628,26 @@ class OrderFlowPathTests(APITestCase):
             row["customer_name"] for row in by_customer_desc.data["results"]
         ]
         self.assertEqual(names_desc, sorted(names, reverse=True))
+
+    def test_confirm_events_ordered_by_created_at_then_id(self):
+        draft = self._draft(quantity=1)
+        order_id = draft["id"]
+        self._confirm(order_id)
+
+        # Force same-second timestamps so -id is the only stable tie-break.
+        events = list(OrderEvent.objects.filter(order_id=order_id).order_by("id"))
+        self.assertGreaterEqual(len(events), 2)
+        shared = events[0].created_at
+        OrderEvent.objects.filter(order_id=order_id).update(created_at=shared)
+
+        detail = self.client.get(f"/api/v1/orders/{order_id}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        types = [row["event_type"] for row in detail.data["events"]]
+        ids = [row["id"] for row in detail.data["events"]]
+        self.assertEqual(ids, sorted(ids, reverse=True))
+        # Confirm writes confirmed then payment_status_changed — higher id first.
+        self.assertEqual(types[0], "payment_status_changed")
+        self.assertIn("confirmed", types)
 
     def test_list_query_count_is_bounded(self):
         for _ in range(3):

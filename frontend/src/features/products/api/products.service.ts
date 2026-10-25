@@ -18,14 +18,21 @@ export class ProductService {
     const response = await api.get<Paginated<Product>>(`${ROOT}/`, {
       params: {
         q: params.q || undefined,
+        name: params.name || undefined,
+        sku: params.sku || undefined,
         low_stock: params.low_stock ? "true" : undefined,
         out_of_stock: params.out_of_stock ? "true" : undefined,
+        in_stock: params.in_stock ? "true" : undefined,
         is_active:
           params.is_active === undefined
             ? undefined
             : params.is_active
               ? "true"
               : "false",
+        price_min: params.price_min || undefined,
+        price_max: params.price_max || undefined,
+        stock_min: params.stock_min || undefined,
+        stock_max: params.stock_max || undefined,
         page: params.page,
         page_size: params.page_size,
         ordering: params.ordering,

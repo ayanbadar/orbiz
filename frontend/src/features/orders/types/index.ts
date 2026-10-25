@@ -82,8 +82,14 @@ export type OrderListOrdering =
 
 export type OrderListParams = {
   q?: string;
+  number?: string;
+  customer_name?: string;
   fulfilment_status?: FulfilmentStatus;
   payment_status?: PaymentStatus;
+  total_min?: string;
+  total_max?: string;
+  created_after?: string;
+  created_before?: string;
   page?: number;
   page_size?: number;
   ordering?: OrderListOrdering;

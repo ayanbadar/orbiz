@@ -1,5 +1,6 @@
 import type {
   ColDef,
+  FilterModel,
   ICellRendererParams,
   RowClickedEvent,
   SortChangedEvent,
@@ -14,11 +15,17 @@ import { ProductAvailabilityBadge } from "@/features/products/components/product
 import { ProductImage } from "@/features/products/components/product-image";
 import type { Product, ProductListOrdering } from "@/features/products/types";
 import { getProductAvailabilityLabel } from "@/features/products/utils/product-status";
+import {
+  serverNumberFilter,
+  serverTextFilter,
+} from "@/lib/ag-grid-server-filter";
 
 type Props = {
   products: Product[];
   ordering: ProductListOrdering;
   onOrderingChange: (ordering: ProductListOrdering) => void;
+  filterModel: FilterModel;
+  onFilterModelChange: (model: FilterModel) => void;
 };
 
 /** Server `ordering` fields that map 1:1 to grid columns. */
@@ -78,6 +85,8 @@ export function ProductsGrid({
   products,
   ordering,
   onOrderingChange,
+  filterModel,
+  onFilterModelChange,
 }: Props) {
   const navigate = useNavigate();
   const gridRef = useRef<AgGridReact<Product>>(null);
@@ -99,7 +108,7 @@ export function ProductsGrid({
         flex: 2.4,
         minWidth: 220,
         cellRenderer: ProductCell,
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
         comparator: () => 0,
         sort: sortColId === "name" ? sortDir : undefined,
         initialSort: sortColId === "name" ? sortDir : undefined,
@@ -110,7 +119,7 @@ export function ProductsGrid({
         flex: 1,
         minWidth: 120,
         cellClass: "font-mono text-xs text-body",
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
       },
       {
         headerName: "Price",
@@ -118,7 +127,9 @@ export function ProductsGrid({
         flex: 0.9,
         minWidth: 110,
         cellRenderer: PriceCell,
-        filter: "agNumberColumnFilter",
+        filter: serverNumberFilter,
+        valueGetter: ({ data }) =>
+          data ? Number(data.price) : undefined,
         comparator: () => 0,
         sort: sortColId === "price" ? sortDir : undefined,
       },
@@ -128,7 +139,7 @@ export function ProductsGrid({
         flex: 0.7,
         minWidth: 88,
         cellClass: "tabular-nums",
-        filter: "agNumberColumnFilter",
+        filter: serverNumberFilter,
         comparator: () => 0,
         sort: sortColId === "stock_quantity" ? sortDir : undefined,
       },
@@ -138,7 +149,11 @@ export function ProductsGrid({
         flex: 1.15,
         minWidth: 168,
         sortable: false,
-        filter: "agTextColumnFilter",
+        filter: serverTextFilter,
+        filterParams: {
+          filterOptions: ["equals", "contains"],
+          defaultOption: "equals",
+        },
         valueGetter: ({ data }) =>
           data ? getProductAvailabilityLabel(data) : "",
         cellRenderer: StatusCell,
@@ -185,6 +200,8 @@ export function ProductsGrid({
       columnDefs={columnDefs}
       getRowId={(params) => String(params.data.id)}
       onRowClicked={onRowClicked}
+      filterModel={filterModel}
+      onFilterModelChange={onFilterModelChange}
       gridOptions={{
         rowStyle: { cursor: "pointer" },
         onSortChanged,

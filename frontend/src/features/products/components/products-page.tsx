@@ -1,5 +1,6 @@
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import type { FilterModel } from "ag-grid-community";
 import {
   parseAsBoolean,
   parseAsInteger,
@@ -21,6 +22,10 @@ import { useProducts } from "@/features/products/api/products.api";
 import { Channel3SearchDialog } from "@/features/products/components/channel3-search-dialog";
 import { ProductsGrid } from "@/features/products/components/products-grid";
 import type { ProductListOrdering } from "@/features/products/types";
+import {
+  productFilterModelToPatch,
+  productFiltersToFilterModel,
+} from "@/features/products/utils/product-grid-filters";
 import { useCurrentStore } from "@/features/stores/api/stores.api";
 import { ApiError } from "@/lib/api";
 
@@ -40,14 +45,23 @@ export function ProductsPage() {
   const [channel3Open, setChannel3Open] = useState(false);
   const [filters, setFilters] = useQueryStates({
     q: parseAsString.withDefault(""),
+    name: parseAsString.withDefault(""),
+    sku: parseAsString.withDefault(""),
     low_stock: parseAsBoolean.withDefault(false),
     out_of_stock: parseAsBoolean.withDefault(false),
+    in_stock: parseAsBoolean.withDefault(false),
     // null = all; true = active only; false = inactive only
     is_active: parseAsBoolean,
+    price_min: parseAsString,
+    price_max: parseAsString,
+    stock_min: parseAsString,
+    stock_max: parseAsString,
     page: parseAsInteger.withDefault(1),
     ordering: parseAsStringLiteral(PRODUCT_ORDERINGS).withDefault("name"),
   });
   const deferredQ = useDeferredValue(filters.q);
+  const deferredName = useDeferredValue(filters.name);
+  const deferredSku = useDeferredValue(filters.sku);
 
   const storeReady = Boolean(storeQuery.data);
   const storeMissing =
@@ -55,12 +69,47 @@ export function ProductsPage() {
     storeQuery.error instanceof ApiError &&
     storeQuery.error.status === 404;
 
+  const filterModel = useMemo(
+    () =>
+      productFiltersToFilterModel({
+        name: filters.name,
+        sku: filters.sku,
+        price_min: filters.price_min,
+        price_max: filters.price_max,
+        stock_min: filters.stock_min,
+        stock_max: filters.stock_max,
+        low_stock: filters.low_stock,
+        out_of_stock: filters.out_of_stock,
+        in_stock: filters.in_stock,
+        is_active: filters.is_active,
+      }),
+    [
+      filters.name,
+      filters.sku,
+      filters.price_min,
+      filters.price_max,
+      filters.stock_min,
+      filters.stock_max,
+      filters.low_stock,
+      filters.out_of_stock,
+      filters.in_stock,
+      filters.is_active,
+    ],
+  );
+
   const productsQuery = useProducts(
     {
       q: deferredQ || undefined,
+      name: deferredName || undefined,
+      sku: deferredSku || undefined,
       low_stock: filters.low_stock || undefined,
       out_of_stock: filters.out_of_stock || undefined,
+      in_stock: filters.in_stock || undefined,
       is_active: filters.is_active === null ? undefined : filters.is_active,
+      price_min: filters.price_min ?? undefined,
+      price_max: filters.price_max ?? undefined,
+      stock_min: filters.stock_min ?? undefined,
+      stock_max: filters.stock_max ?? undefined,
       page: filters.page,
       page_size: DEFAULT_PAGE_SIZE,
       ordering: filters.ordering,
@@ -105,10 +154,35 @@ export function ProductsPage() {
     !productsQuery.isPlaceholderData;
   const hasActiveFilters = Boolean(
     deferredQ ||
+      deferredName ||
+      deferredSku ||
       filters.low_stock ||
       filters.out_of_stock ||
-      filters.is_active !== null,
+      filters.in_stock ||
+      filters.is_active !== null ||
+      filters.price_min ||
+      filters.price_max ||
+      filters.stock_min ||
+      filters.stock_max,
   );
+
+  const onFilterModelChange = (model: FilterModel) => {
+    void setFilters({
+      ...productFilterModelToPatch(model, {
+        name: filters.name,
+        sku: filters.sku,
+        price_min: filters.price_min,
+        price_max: filters.price_max,
+        stock_min: filters.stock_min,
+        stock_max: filters.stock_max,
+        low_stock: filters.low_stock,
+        out_of_stock: filters.out_of_stock,
+        in_stock: filters.in_stock,
+        is_active: filters.is_active,
+      }),
+      page: 1,
+    });
+  };
 
   return (
     <>
@@ -151,6 +225,7 @@ export function ProductsPage() {
                 void setFilters({
                   low_stock: !filters.low_stock,
                   out_of_stock: false,
+                  in_stock: false,
                   page: 1,
                 });
               }}
@@ -163,6 +238,7 @@ export function ProductsPage() {
                 void setFilters({
                   out_of_stock: !filters.out_of_stock,
                   low_stock: false,
+                  in_stock: false,
                   page: 1,
                 });
               }}
@@ -174,6 +250,7 @@ export function ProductsPage() {
               onClick={() => {
                 void setFilters({
                   is_active: filters.is_active === true ? null : true,
+                  in_stock: false,
                   page: 1,
                 });
               }}
@@ -185,6 +262,9 @@ export function ProductsPage() {
               onClick={() => {
                 void setFilters({
                   is_active: filters.is_active === false ? null : false,
+                  low_stock: false,
+                  out_of_stock: false,
+                  in_stock: false,
                   page: 1,
                 });
               }}
@@ -254,6 +334,8 @@ export function ProductsPage() {
           onOrderingChange={(ordering) => {
             void setFilters({ ordering, page: 1 });
           }}
+          filterModel={filterModel}
+          onFilterModelChange={onFilterModelChange}
         />
       </ResourceListChrome>
 

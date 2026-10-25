@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
@@ -21,6 +23,24 @@ from apps.products.serializers import (
 )
 from apps.products.services import deactivate_product
 from apps.stores.mixins import StoreScopedMixin
+
+
+def _parse_decimal(raw: str | None) -> Decimal | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return Decimal(raw)
+    except (InvalidOperation, TypeError):
+        return None
+
+
+def _parse_int(raw: str | None) -> int | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 class ProductStoreMixin(StoreScopedMixin):
@@ -56,6 +76,12 @@ class ProductListCreateView(ProductStoreMixin, generics.ListCreateAPIView):
         q = self.request.query_params.get("q")
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(sku__icontains=q))
+        name = self.request.query_params.get("name")
+        if name:
+            qs = qs.filter(name__icontains=name)
+        sku = self.request.query_params.get("sku")
+        if sku:
+            qs = qs.filter(sku__icontains=sku)
         is_active = self.request.query_params.get("is_active")
         if is_active in {"true", "false"}:
             qs = qs.filter(is_active=is_active == "true")
@@ -63,6 +89,23 @@ class ProductListCreateView(ProductStoreMixin, generics.ListCreateAPIView):
             qs = qs.filter(stock_quantity__lte=F("low_stock_threshold"))
         if self.request.query_params.get("out_of_stock") == "true":
             qs = qs.filter(stock_quantity=0)
+        if self.request.query_params.get("in_stock") == "true":
+            qs = qs.filter(
+                is_active=True,
+                stock_quantity__gt=F("low_stock_threshold"),
+            )
+        price_min = _parse_decimal(self.request.query_params.get("price_min"))
+        if price_min is not None:
+            qs = qs.filter(price__gte=price_min)
+        price_max = _parse_decimal(self.request.query_params.get("price_max"))
+        if price_max is not None:
+            qs = qs.filter(price__lte=price_max)
+        stock_min = _parse_int(self.request.query_params.get("stock_min"))
+        if stock_min is not None:
+            qs = qs.filter(stock_quantity__gte=stock_min)
+        stock_max = _parse_int(self.request.query_params.get("stock_max"))
+        if stock_max is not None:
+            qs = qs.filter(stock_quantity__lte=stock_max)
         ordering = self.request.query_params.get("ordering") or "name"
         allowed = {
             "name",

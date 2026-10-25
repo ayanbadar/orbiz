@@ -16,8 +16,14 @@ export class OrderService {
     const response = await api.get<Paginated<OrderListItem>>(`${ROOT}/`, {
       params: {
         q: params.q || undefined,
+        number: params.number || undefined,
+        customer_name: params.customer_name || undefined,
         fulfilment_status: params.fulfilment_status || undefined,
         payment_status: params.payment_status || undefined,
+        total_min: params.total_min || undefined,
+        total_max: params.total_max || undefined,
+        created_after: params.created_after || undefined,
+        created_before: params.created_before || undefined,
         page: params.page,
         page_size: params.page_size,
         ordering: params.ordering,

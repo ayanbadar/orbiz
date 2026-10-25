@@ -142,7 +142,8 @@ class OrderEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        # id breaks ties when confirm writes two rows in the same second.
+        ordering = ["-created_at", "-id"]
 
     def __str__(self) -> str:
         return f"{self.order_id} {self.event_type}"

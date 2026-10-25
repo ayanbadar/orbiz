@@ -1,5 +1,6 @@
-import { useDeferredValue } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
+import type { FilterModel } from "ag-grid-community";
 import {
   parseAsInteger,
   parseAsString,
@@ -24,6 +25,10 @@ import type {
   OrderListOrdering,
   PaymentStatus,
 } from "@/features/orders/types";
+import {
+  orderFilterModelToPatch,
+  orderFiltersToFilterModel,
+} from "@/features/orders/utils/order-grid-filters";
 import { useCurrentStore } from "@/features/stores/api/stores.api";
 import { ApiError } from "@/lib/api";
 
@@ -40,23 +45,42 @@ const ORDER_ORDERINGS = [
   "-updated_at",
 ] as const satisfies readonly OrderListOrdering[];
 
+/** All API statuses — chips only surface a subset; column filters use the rest. */
 const FULFILMENT_FILTERS = [
   "draft",
   "unfulfilled",
+  "processing",
+  "shipped",
+  "completed",
+  "cancelled",
 ] as const satisfies readonly FulfilmentStatus[];
 
-const PAYMENT_FILTERS = ["pending"] as const satisfies readonly PaymentStatus[];
+const PAYMENT_FILTERS = [
+  "unpaid",
+  "pending",
+  "paid",
+  "failed",
+  "cancelled",
+] as const satisfies readonly PaymentStatus[];
 
 export function OrdersPage() {
   const storeQuery = useCurrentStore();
   const [filters, setFilters] = useQueryStates({
     q: parseAsString.withDefault(""),
+    number: parseAsString.withDefault(""),
+    customer_name: parseAsString.withDefault(""),
     fulfilment_status: parseAsStringLiteral(FULFILMENT_FILTERS),
     payment_status: parseAsStringLiteral(PAYMENT_FILTERS),
+    total_min: parseAsString,
+    total_max: parseAsString,
+    created_after: parseAsString,
+    created_before: parseAsString,
     page: parseAsInteger.withDefault(1),
     ordering: parseAsStringLiteral(ORDER_ORDERINGS).withDefault("-created_at"),
   });
   const deferredQ = useDeferredValue(filters.q);
+  const deferredNumber = useDeferredValue(filters.number);
+  const deferredCustomer = useDeferredValue(filters.customer_name);
 
   const storeReady = Boolean(storeQuery.data);
   const storeMissing =
@@ -64,11 +88,41 @@ export function OrdersPage() {
     storeQuery.error instanceof ApiError &&
     storeQuery.error.status === 404;
 
+  const filterModel = useMemo(
+    () =>
+      orderFiltersToFilterModel({
+        number: filters.number,
+        customer_name: filters.customer_name,
+        fulfilment_status: filters.fulfilment_status,
+        payment_status: filters.payment_status,
+        total_min: filters.total_min,
+        total_max: filters.total_max,
+        created_after: filters.created_after,
+        created_before: filters.created_before,
+      }),
+    [
+      filters.number,
+      filters.customer_name,
+      filters.fulfilment_status,
+      filters.payment_status,
+      filters.total_min,
+      filters.total_max,
+      filters.created_after,
+      filters.created_before,
+    ],
+  );
+
   const ordersQuery = useOrders(
     {
       q: deferredQ || undefined,
+      number: deferredNumber || undefined,
+      customer_name: deferredCustomer || undefined,
       fulfilment_status: filters.fulfilment_status ?? undefined,
       payment_status: filters.payment_status ?? undefined,
+      total_min: filters.total_min ?? undefined,
+      total_max: filters.total_max ?? undefined,
+      created_after: filters.created_after ?? undefined,
+      created_before: filters.created_before ?? undefined,
       page: filters.page,
       page_size: DEFAULT_PAGE_SIZE,
       ordering: filters.ordering,
@@ -111,8 +165,23 @@ export function OrdersPage() {
     rows.length === 0 &&
     !ordersQuery.isPlaceholderData;
   const hasActiveFilters = Boolean(
-    deferredQ || filters.fulfilment_status || filters.payment_status,
+    deferredQ ||
+      deferredNumber ||
+      deferredCustomer ||
+      filters.fulfilment_status ||
+      filters.payment_status ||
+      filters.total_min ||
+      filters.total_max ||
+      filters.created_after ||
+      filters.created_before,
   );
+
+  const onFilterModelChange = (model: FilterModel) => {
+    void setFilters({
+      ...orderFilterModelToPatch(model),
+      page: 1,
+    });
+  };
 
   return (
     <ResourceListChrome
@@ -222,6 +291,8 @@ export function OrdersPage() {
         onOrderingChange={(ordering) => {
           void setFilters({ ordering, page: 1 });
         }}
+        filterModel={filterModel}
+        onFilterModelChange={onFilterModelChange}
       />
     </ResourceListChrome>
   );
