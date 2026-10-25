@@ -165,6 +165,8 @@ export function DataGrid<TData>({
   const mergedDefaultColDef = useMemo<ColDef<TData>>(
     () => ({
       sortable: true,
+      // Asc ↔ desc only — no 3rd-click clear (would reset URL ordering to default).
+      sortingOrder: ["asc", "desc"],
       resizable: true,
       filter: serverDriven ? serverTextFilter : true,
       filterParams: serverDriven ? SERVER_FILTER_PARAMS : undefined,
