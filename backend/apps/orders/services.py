@@ -347,7 +347,7 @@ def transition_fulfilment(
 @transaction.atomic
 def mark_order_paid(*, order: Order, user, message: str = "") -> Order:
     """
-    Set order-level payment to paid (seed / tests / future verified PayPal webhook).
+    Set order-level payment to paid (seed / tests / verified PayPal capture or webhook).
 
     Does not change fulfilment. Rejects cancelled orders and already-paid no-ops
     as conflicts when not pending/unpaid/failed/cancelled-attempt.
@@ -376,6 +376,42 @@ def mark_order_paid(*, order: Order, user, message: str = "") -> Order:
         message=message or "Payment marked paid.",
         from_value=previous,
         to_value=Order.PaymentStatus.PAID,
+    )
+    return order
+
+
+@transaction.atomic
+def mark_order_payment_failed(*, order: Order, user=None, message: str = "") -> Order:
+    """
+    Set order-level payment to failed (PayPal capture/webhook denial).
+
+    Idempotent when already failed. Rejects cancelled orders and already-paid.
+    """
+    order = _lock_order(order)
+    if order.fulfilment_status == Order.FulfilmentStatus.CANCELLED:
+        raise ConflictError("Cannot fail payment on a cancelled order.")
+    if order.payment_status == Order.PaymentStatus.PAID:
+        raise ConflictError("Cannot mark a paid order as failed.")
+    if order.payment_status == Order.PaymentStatus.FAILED:
+        return order
+    if order.payment_status not in {
+        Order.PaymentStatus.PENDING,
+        Order.PaymentStatus.UNPAID,
+        Order.PaymentStatus.CANCELLED,
+    }:
+        raise ConflictError(
+            f"Cannot mark payment failed from status {order.payment_status}."
+        )
+    previous = order.payment_status
+    order.payment_status = Order.PaymentStatus.FAILED
+    order.save(update_fields=["payment_status", "updated_at"])
+    _record_event(
+        order=order,
+        event_type=OrderEvent.EventType.PAYMENT_STATUS_CHANGED,
+        actor=user,
+        message=message or "Payment marked failed.",
+        from_value=previous,
+        to_value=Order.PaymentStatus.FAILED,
     )
     return order
 

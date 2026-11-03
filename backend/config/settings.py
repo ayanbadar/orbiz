@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.products",
     "apps.customers",
     "apps.orders",
+    "apps.payments",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -154,6 +155,7 @@ REST_FRAMEWORK = {
         "password": "5/minute",
         "writes": "60/minute",
         "channel3": "30/minute",
+        "payments": "30/minute",
     },
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
@@ -182,6 +184,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "products", "description": "Catalog, inventory, and Channel3 enrichment."},
         {"name": "customers", "description": "Store customers linked to orders."},
         {"name": "orders", "description": "Draft and confirmed orders, stock, and status."},
+        {"name": "payments", "description": "PayPal Sandbox checkout, capture, and webhooks."},
     ],
 }
 
@@ -191,6 +194,13 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 CHANNEL3_API_KEY = env("CHANNEL3_API_KEY", default="")
 CHANNEL3_BASE_URL = env("CHANNEL3_BASE_URL", default="https://api.trychannel3.com")
+
+# PayPal Sandbox (server-side only — never expose in VITE_*)
+PAYPAL_CLIENT_ID = env("PAYPAL_CLIENT_ID", default="")
+PAYPAL_CLIENT_SECRET = env("PAYPAL_CLIENT_SECRET", default="")
+PAYPAL_MODE = env("PAYPAL_MODE", default="sandbox")
+PAYPAL_WEBHOOK_ID = env("PAYPAL_WEBHOOK_ID", default="")
+PAYPAL_API_BASE = env("PAYPAL_API_BASE", default="")
 
 # Celery (namespace CELERY_*)
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")

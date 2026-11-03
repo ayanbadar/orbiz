@@ -96,7 +96,11 @@ export function OrderActions({ order, confirm }: Props) {
   const onTransition = async () => {
     if (!nextStatus) return;
     if (needsPaidBeforeNext) {
-      toast.error("Mark payment as paid before advancing fulfilment.");
+      toast.error(
+        order.paypal_checkout || order.paypal_configured
+          ? "Complete PayPal Sandbox checkout (or Mark paid demo) before advancing fulfilment."
+          : "Mark payment as paid before advancing fulfilment.",
+      );
       return;
     }
     const label = nextStatus.replaceAll("_", " ");
@@ -116,14 +120,15 @@ export function OrderActions({ order, confirm }: Props) {
 
   const onMarkPaid = async () => {
     const ok = await confirm({
-      title: "Mark this order paid?",
-      description: "Demo only — PayPal will own this in §2.7.",
-      confirmLabel: "Mark paid",
+      title: "Mark this order paid (demo)?",
+      description:
+        "Offline demo fallback only — prefer PayPal Sandbox checkout on this page when credentials are configured.",
+      confirmLabel: "Mark paid (demo)",
     });
     if (!ok) return;
     try {
       await markPaid.mutateAsync();
-      toast.success("Payment marked paid.");
+      toast.success("Payment marked paid (demo).");
     } catch (error) {
       toast.error(getErrorMessage(error, "Could not mark paid."));
     }

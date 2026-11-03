@@ -1,4 +1,4 @@
-# OpenAPI → Postman (Stores / Products / Customers / Orders)
+# OpenAPI → Postman (Stores / Products / Customers / Orders / Payments)
 
 Orbiz serves the live schema from the API. Export that into Postman for the hackathon demo.
 
@@ -29,11 +29,15 @@ Orbiz serves the live schema from the API. Export that into Postman for the hack
 - `GET/POST /api/v1/customers/`
 - `GET/POST /api/v1/orders/`
 - `POST /api/v1/orders/{id}/confirm/` — locks + deducts stock
-- `POST /api/v1/orders/{id}/mark-paid/` — demo / pre-PayPal
+- `POST /api/v1/orders/{id}/mark-paid/` — demo / offline fallback (prefer PayPal Sandbox)
 - `POST /api/v1/orders/{id}/abandon-payment/` — payment cancelled, order stays unfulfilled
 - `POST /api/v1/orders/{id}/transition/` — body may include `allow_unpaid`; default requires paid
 - `POST /api/v1/orders/{id}/cancel/` — restores stock once when deducted
+- `POST /api/v1/payments/orders/{id}/checkout/` — create PayPal Sandbox checkout
+- `POST /api/v1/payments/orders/{id}/capture/` — capture after buyer approval
+- `GET /api/v1/payments/orders/{id}/` — latest checkout + configured/sandbox flags
+- `POST /api/v1/payments/webhooks/paypal/` — verified webhook (no JWT; signature required)
 
-Tags in the schema: `auth`, `stores`, `products`, `customers`, `orders`.
+Tags in the schema: `auth`, `stores`, `products`, `customers`, `orders`, `payments`.
 
 Re-export from `/api/schema/` after endpoint changes so Postman stays current.

@@ -46,6 +46,9 @@ class OrderSerializer(serializers.ModelSerializer):
     customer = CustomerSerializer(read_only=True)
     lines = OrderLineSerializer(many=True, read_only=True)
     events = OrderEventSerializer(many=True, read_only=True)
+    paypal_checkout = serializers.SerializerMethodField()
+    paypal_configured = serializers.SerializerMethodField()
+    paypal_sandbox = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -66,9 +69,31 @@ class OrderSerializer(serializers.ModelSerializer):
             "cancelled_at",
             "lines",
             "events",
+            "paypal_checkout",
+            "paypal_configured",
+            "paypal_sandbox",
             "created_at",
             "updated_at",
         ]
+
+    def get_paypal_checkout(self, order: Order):
+        from apps.payments.serializers import PaymentCheckoutSummarySerializer
+        from apps.payments.services import latest_checkout
+
+        checkout = latest_checkout(order=order)
+        if checkout is None:
+            return None
+        return PaymentCheckoutSummarySerializer(checkout).data
+
+    def get_paypal_configured(self, _order: Order) -> bool:
+        from apps.payments import paypal as paypal_client
+
+        return paypal_client.is_configured()
+
+    def get_paypal_sandbox(self, _order: Order) -> bool:
+        from apps.payments import paypal as paypal_client
+
+        return paypal_client.is_sandbox_mode()
 
 
 class OrderListSerializer(serializers.ModelSerializer):

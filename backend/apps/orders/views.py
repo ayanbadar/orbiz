@@ -277,7 +277,7 @@ class OrderMarkPaidView(OrderStoreMixin, APIView):
 
     @extend_schema(
         tags=["orders"],
-        summary="Mark payment paid (demo / pre-PayPal)",
+        summary="Mark payment paid (demo / offline fallback)",
         request=None,
         responses={200: OrderSerializer},
     )
@@ -286,7 +286,7 @@ class OrderMarkPaidView(OrderStoreMixin, APIView):
         order = mark_order_paid(
             order=order,
             user=request.user,
-            message="Payment marked paid (demo / pre-PayPal).",
+            message="Payment marked paid (demo / offline fallback).",
         )
         order = self.get_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)

@@ -1,4 +1,5 @@
 import type { Customer } from "@/features/customers/types";
+import type { PaymentCheckout } from "@/features/payments/types";
 
 export type FulfilmentStatus =
   | "draft"
@@ -52,6 +53,9 @@ export type Order = {
   cancelled_at: string | null;
   lines: OrderLine[];
   events: OrderEvent[];
+  paypal_checkout?: PaymentCheckout | null;
+  paypal_configured?: boolean;
+  paypal_sandbox?: boolean;
   created_at: string;
   updated_at: string;
 };
