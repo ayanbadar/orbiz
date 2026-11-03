@@ -1,5 +1,5 @@
 """
-WSGI config for Meraki Interiors.
+WSGI config for Orbiz Interiors.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 """

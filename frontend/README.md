@@ -1,4 +1,4 @@
-# Meraki Interiors — Frontend
+# Orbiz Interiors — Frontend
 
 Production-ready React application foundation.
 
