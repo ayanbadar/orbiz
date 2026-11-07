@@ -12,31 +12,20 @@ import {
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
+import { ON_INK_OUTLINE_BUTTON } from "@/features/orders/components/paypal-card-styles";
+import { PaypalInvoiceSection } from "@/features/orders/components/paypal-invoice-section";
+import { PaypalRefundSection } from "@/features/orders/components/paypal-refund-section";
+import type { Order } from "@/features/orders/types";
+import { canRequestPayment, copyLink } from "@/features/orders/utils/paypal-order";
 import {
   useCapturePaypalCheckout,
   useCreatePaypalCheckout,
 } from "@/features/payments/api/payments.api";
-import type { Order } from "@/features/orders/types";
 
 type Props = {
   order: Order;
   confirm: (options: ConfirmDialogOptions) => Promise<boolean>;
 };
-
-function canCreateCheckout(order: Order): boolean {
-  if (order.fulfilment_status === "cancelled" || order.fulfilment_status === "draft") {
-    return false;
-  }
-  if (order.payment_status === "paid") {
-    return false;
-  }
-  return (
-    order.payment_status === "pending" ||
-    order.payment_status === "unpaid" ||
-    order.payment_status === "failed" ||
-    order.payment_status === "cancelled"
-  );
-}
 
 export function PaypalSandboxCard({ order, confirm }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,7 +36,13 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
   const checkout = order.paypal_checkout ?? null;
   const configured = order.paypal_configured ?? false;
   const sandbox = order.paypal_sandbox ?? true;
+  const currencySupported = order.paypal_currency_supported ?? true;
   const busy = createCheckout.isPending || captureCheckout.isPending;
+  // A superseded (cancelled) or finished checkout has no link worth sharing.
+  const approveUrl =
+    checkout && (checkout.status === "created" || checkout.status === "approved")
+      ? checkout.approve_url
+      : "";
 
   useEffect(() => {
     const flag = searchParams.get("paypal");
@@ -119,8 +114,8 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
   };
 
   const onOpenApprove = () => {
-    if (!checkout?.approve_url) return;
-    window.open(checkout.approve_url, "_blank", "noopener,noreferrer");
+    if (!approveUrl) return;
+    window.open(approveUrl, "_blank", "noopener,noreferrer");
   };
 
   const onCapture = async () => {
@@ -146,11 +141,18 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
         </CardTitle>
         <CardDescription className="text-background/70">
           {configured
-            ? "Create a Sandbox checkout, approve with a buyer account, then capture. Not a live charge."
+            ? "Create a Sandbox checkout or send an invoice. The buyer pays with a Sandbox account and PayPal confirms it back to Orbiz. Not a live charge."
             : "PayPal credentials are not configured. Use Mark paid (demo) offline, or set PAYPAL_CLIENT_ID / SECRET on the API."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!currencySupported ? (
+          <p className="text-sm text-destructive" role="alert">
+            PayPal Sandbox can&apos;t take {order.currency} payments. Use an
+            order in USD to pay with PayPal.
+          </p>
+        ) : null}
+
         {checkout ? (
           <div className="space-y-1 text-sm text-background/80">
             <p>
@@ -169,11 +171,11 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          {canCreateCheckout(order) ? (
+          {canRequestPayment(order) ? (
             <Button
               type="button"
               className="rounded-[24px]"
-              disabled={busy || !configured}
+              disabled={busy || !configured || !currencySupported}
               onClick={() => {
                 void onCreate();
               }}
@@ -186,16 +188,29 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
             </Button>
           ) : null}
 
-          {checkout?.approve_url && checkout.status !== "captured" ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-[24px] border-primary bg-transparent text-primary"
-              disabled={busy}
-              onClick={onOpenApprove}
-            >
-              Open approve link
-            </Button>
+          {approveUrl ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className={ON_INK_OUTLINE_BUTTON}
+                disabled={busy}
+                onClick={onOpenApprove}
+              >
+                Open approve link
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className={ON_INK_OUTLINE_BUTTON}
+                disabled={busy}
+                onClick={() => {
+                  void copyLink(approveUrl, "Checkout link");
+                }}
+              >
+                Copy checkout link
+              </Button>
+            </>
           ) : null}
 
           {checkout &&
@@ -204,7 +219,7 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
             <Button
               type="button"
               variant="outline"
-              className="rounded-[24px] border-primary bg-transparent text-primary"
+              className={ON_INK_OUTLINE_BUTTON}
               disabled={busy || !configured}
               onClick={() => {
                 void onCapture();
@@ -214,6 +229,13 @@ export function PaypalSandboxCard({ order, confirm }: Props) {
             </Button>
           ) : null}
         </div>
+
+        <PaypalInvoiceSection
+          order={order}
+          confirm={confirm}
+          enabled={configured && currencySupported}
+        />
+        <PaypalRefundSection order={order} />
       </CardContent>
     </Card>
   );

@@ -4,6 +4,9 @@ from apps.payments.views import (
     PaymentCheckoutCaptureView,
     PaymentCheckoutCreateView,
     PaymentCheckoutDetailView,
+    PaymentInvoiceCancelView,
+    PaymentInvoiceCreateView,
+    PaymentRefundView,
     PayPalWebhookView,
 )
 
@@ -17,6 +20,21 @@ urlpatterns = [
         "orders/<int:order_id>/capture/",
         PaymentCheckoutCaptureView.as_view(),
         name="payment-checkout-capture",
+    ),
+    path(
+        "orders/<int:order_id>/refund/",
+        PaymentRefundView.as_view(),
+        name="payment-refund-create",
+    ),
+    path(
+        "orders/<int:order_id>/invoice/",
+        PaymentInvoiceCreateView.as_view(),
+        name="payment-invoice-create",
+    ),
+    path(
+        "orders/<int:order_id>/invoice/cancel/",
+        PaymentInvoiceCancelView.as_view(),
+        name="payment-invoice-cancel",
     ),
     path(
         "orders/<int:order_id>/",

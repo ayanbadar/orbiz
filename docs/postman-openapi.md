@@ -34,7 +34,10 @@ Orbiz serves the live schema from the API. Export that into Postman for the hack
 - `POST /api/v1/orders/{id}/transition/` — body may include `allow_unpaid`; default requires paid
 - `POST /api/v1/orders/{id}/cancel/` — restores stock once when deducted
 - `POST /api/v1/payments/orders/{id}/checkout/` — create PayPal Sandbox checkout
-- `POST /api/v1/payments/orders/{id}/capture/` — capture after buyer approval
+- `POST /api/v1/payments/orders/{id}/capture/` — capture after buyer approval (also runs automatically on the `CHECKOUT.ORDER.APPROVED` webhook)
+- `POST /api/v1/payments/orders/{id}/refund/` — body `{amount?, note_to_payer?}`; omit `amount` for a full refund; returns the order
+- `POST /api/v1/payments/orders/{id}/invoice/` — body `{recipient_email?}`; PayPal emails the buyer, blank email = link-only; returns the order
+- `POST /api/v1/payments/orders/{id}/invoice/cancel/` — cancel the open PayPal invoice; returns the order
 - `GET /api/v1/payments/orders/{id}/` — latest checkout + configured/sandbox flags
 - `POST /api/v1/payments/webhooks/paypal/` — verified webhook (no JWT; signature required)
 

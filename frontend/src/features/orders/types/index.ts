@@ -1,5 +1,9 @@
 import type { Customer } from "@/features/customers/types";
-import type { PaymentCheckout } from "@/features/payments/types";
+import type {
+  PaymentCheckout,
+  PaymentInvoice,
+  PaymentRefund,
+} from "@/features/payments/types";
 
 export type FulfilmentStatus =
   | "draft"
@@ -14,7 +18,9 @@ export type PaymentStatus =
   | "pending"
   | "paid"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  | "partially_refunded"
+  | "refunded";
 
 export type OrderLine = {
   id: number;
@@ -54,6 +60,10 @@ export type Order = {
   lines: OrderLine[];
   events: OrderEvent[];
   paypal_checkout?: PaymentCheckout | null;
+  paypal_invoice?: PaymentInvoice | null;
+  paypal_refunds?: PaymentRefund[];
+  paypal_refundable_amount?: string;
+  paypal_currency_supported?: boolean;
   paypal_configured?: boolean;
   paypal_sandbox?: boolean;
   created_at: string;

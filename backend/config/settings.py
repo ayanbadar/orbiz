@@ -201,6 +201,10 @@ PAYPAL_CLIENT_SECRET = env("PAYPAL_CLIENT_SECRET", default="")
 PAYPAL_MODE = env("PAYPAL_MODE", default="sandbox")
 PAYPAL_WEBHOOK_ID = env("PAYPAL_WEBHOOK_ID", default="")
 PAYPAL_API_BASE = env("PAYPAL_API_BASE", default="")
+# Currencies the PayPal merchant can take (PKR is unsupported — Pakistan is not a PayPal country).
+PAYPAL_SUPPORTED_CURRENCIES = [
+    code.upper() for code in env.list("PAYPAL_SUPPORTED_CURRENCIES", default=["USD"])
+]
 
 # Celery (namespace CELERY_*)
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")

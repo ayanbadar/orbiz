@@ -35,6 +35,14 @@ PAYMENT_REQUIRED_TARGETS = {
     Order.FulfilmentStatus.COMPLETED,
 }
 
+# Money received and still (at least partly) held — fulfilment may proceed.
+PAID_LIKE = {
+    Order.PaymentStatus.PAID,
+    Order.PaymentStatus.PARTIALLY_REFUNDED,
+}
+# Money was received at some point — a replayed "paid" event is a no-op, not a conflict.
+MONEY_RECEIVED = PAID_LIKE | {Order.PaymentStatus.REFUNDED}
+
 
 def _next_order_number(*, store) -> str:
     """Allocate the next ORD-N under an already-locked store row."""
@@ -320,7 +328,7 @@ def transition_fulfilment(
         )
     if (
         fulfilment_status in PAYMENT_REQUIRED_TARGETS
-        and order.payment_status != Order.PaymentStatus.PAID
+        and order.payment_status not in PAID_LIKE
         and not allow_unpaid
     ):
         raise ConflictError(
@@ -331,7 +339,7 @@ def transition_fulfilment(
     order.fulfilment_status = fulfilment_status
     order.save(update_fields=["fulfilment_status", "updated_at"])
     message = f"Fulfilment status changed to {fulfilment_status}."
-    if allow_unpaid and order.payment_status != Order.PaymentStatus.PAID:
+    if allow_unpaid and order.payment_status not in PAID_LIKE:
         message += " (allow_unpaid override)"
     _record_event(
         order=order,
@@ -355,7 +363,7 @@ def mark_order_paid(*, order: Order, user, message: str = "") -> Order:
     order = _lock_order(order)
     if order.fulfilment_status == Order.FulfilmentStatus.CANCELLED:
         raise ConflictError("Cannot mark a cancelled order as paid.")
-    if order.payment_status == Order.PaymentStatus.PAID:
+    if order.payment_status in MONEY_RECEIVED:
         return order
     if order.payment_status not in {
         Order.PaymentStatus.PENDING,
@@ -390,7 +398,7 @@ def mark_order_payment_failed(*, order: Order, user=None, message: str = "") -> 
     order = _lock_order(order)
     if order.fulfilment_status == Order.FulfilmentStatus.CANCELLED:
         raise ConflictError("Cannot fail payment on a cancelled order.")
-    if order.payment_status == Order.PaymentStatus.PAID:
+    if order.payment_status in MONEY_RECEIVED:
         raise ConflictError("Cannot mark a paid order as failed.")
     if order.payment_status == Order.PaymentStatus.FAILED:
         return order
@@ -412,6 +420,40 @@ def mark_order_payment_failed(*, order: Order, user=None, message: str = "") -> 
         message=message or "Payment marked failed.",
         from_value=previous,
         to_value=Order.PaymentStatus.FAILED,
+    )
+    return order
+
+
+@transaction.atomic
+def mark_order_refunded(
+    *, order: Order, user=None, fully: bool, message: str = ""
+) -> Order:
+    """
+    Record a refund against a paid order's payment status (PayPal refund or webhook).
+
+    Payment-only: fulfilment and stock are untouched. A cancelled order may be refunded
+    because cancelling keeps a paid order paid. Replays after a full refund are no-ops.
+    """
+    order = _lock_order(order)
+    if order.payment_status == Order.PaymentStatus.REFUNDED:
+        return order
+    if order.payment_status not in PAID_LIKE:
+        raise ConflictError("Only a paid order can be refunded.")
+
+    previous = order.payment_status
+    target = (
+        Order.PaymentStatus.REFUNDED if fully else Order.PaymentStatus.PARTIALLY_REFUNDED
+    )
+    if target != previous:
+        order.payment_status = target
+        order.save(update_fields=["payment_status", "updated_at"])
+    _record_event(
+        order=order,
+        event_type=OrderEvent.EventType.PAYMENT_REFUNDED,
+        actor=user,
+        message=message or "Payment refunded.",
+        from_value=previous,
+        to_value=target,
     )
     return order
 

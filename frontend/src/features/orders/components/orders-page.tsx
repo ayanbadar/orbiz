@@ -61,6 +61,8 @@ const PAYMENT_FILTERS = [
   "paid",
   "failed",
   "cancelled",
+  "partially_refunded",
+  "refunded",
 ] as const satisfies readonly PaymentStatus[];
 
 export function OrdersPage() {

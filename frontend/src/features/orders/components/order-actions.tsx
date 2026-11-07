@@ -36,7 +36,8 @@ export function getOrderActionState(order: Order) {
   const needsPaidBeforeNext =
     Boolean(nextStatus) &&
     PAYMENT_GATED.has(nextStatus as FulfilmentStatus) &&
-    order.payment_status !== "paid";
+    order.payment_status !== "paid" &&
+    order.payment_status !== "partially_refunded";
   const canAbandonPayment =
     order.fulfilment_status === "unfulfilled" &&
     order.payment_status === "pending";

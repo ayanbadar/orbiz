@@ -1,10 +1,16 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.customers.models import Customer
 from apps.customers.serializers import CustomerSerializer
 from apps.orders.models import Order, OrderEvent, OrderLine
 from apps.orders.services import create_draft, transition_fulfilment, update_draft
+from apps.payments.serializers import (
+    PaymentCheckoutSummarySerializer,
+    PaymentInvoiceSummarySerializer,
+    PaymentRefundSerializer,
+)
 
 
 class OrderLineSerializer(serializers.ModelSerializer):
@@ -47,6 +53,10 @@ class OrderSerializer(serializers.ModelSerializer):
     lines = OrderLineSerializer(many=True, read_only=True)
     events = OrderEventSerializer(many=True, read_only=True)
     paypal_checkout = serializers.SerializerMethodField()
+    paypal_invoice = serializers.SerializerMethodField()
+    paypal_refunds = serializers.SerializerMethodField()
+    paypal_refundable_amount = serializers.SerializerMethodField()
+    paypal_currency_supported = serializers.SerializerMethodField()
     paypal_configured = serializers.SerializerMethodField()
     paypal_sandbox = serializers.SerializerMethodField()
 
@@ -70,20 +80,47 @@ class OrderSerializer(serializers.ModelSerializer):
             "lines",
             "events",
             "paypal_checkout",
+            "paypal_invoice",
+            "paypal_refunds",
+            "paypal_refundable_amount",
+            "paypal_currency_supported",
             "paypal_configured",
             "paypal_sandbox",
             "created_at",
             "updated_at",
         ]
 
+    @extend_schema_field(PaymentCheckoutSummarySerializer(allow_null=True))
     def get_paypal_checkout(self, order: Order):
-        from apps.payments.serializers import PaymentCheckoutSummarySerializer
         from apps.payments.services import latest_checkout
 
         checkout = latest_checkout(order=order)
         if checkout is None:
             return None
         return PaymentCheckoutSummarySerializer(checkout).data
+
+    @extend_schema_field(PaymentInvoiceSummarySerializer(allow_null=True))
+    def get_paypal_invoice(self, order: Order):
+        from apps.payments.services import latest_invoice
+
+        invoice = latest_invoice(order=order)
+        if invoice is None:
+            return None
+        return PaymentInvoiceSummarySerializer(invoice).data
+
+    @extend_schema_field(PaymentRefundSerializer(many=True))
+    def get_paypal_refunds(self, order: Order):
+        return PaymentRefundSerializer(order.paypal_refunds.all(), many=True).data
+
+    def get_paypal_refundable_amount(self, order: Order) -> str:
+        from apps.payments.services import get_refundable_amount
+
+        return f"{get_refundable_amount(order=order):.2f}"
+
+    def get_paypal_currency_supported(self, order: Order) -> bool:
+        from apps.payments.services import is_currency_supported
+
+        return is_currency_supported(order.currency)
 
     def get_paypal_configured(self, _order: Order) -> bool:
         from apps.payments import paypal as paypal_client
