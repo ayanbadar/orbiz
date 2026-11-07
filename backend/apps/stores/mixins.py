@@ -22,3 +22,9 @@ class StoreScopedMixin:
         if store is None:
             raise NotFound(self.missing_store_message)
         self.store = store
+
+    def get_serializer_context(self):
+        # Write serializers create/validate rows inside the caller's store.
+        context = super().get_serializer_context()
+        context["store"] = self.store
+        return context

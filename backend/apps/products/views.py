@@ -1,11 +1,11 @@
-from decimal import Decimal, InvalidOperation
-
 from django.db.models import F, Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.mixins import InputOutputSerializerMixin, WritesThrottleOnPostMixin
+from apps.common.query_params import parse_decimal, parse_int, resolve_ordering
 from apps.products.models import InventoryAdjustment, Product
 from apps.orders.services import recent_usage_for_product
 from apps.products.serializers import (
@@ -25,22 +25,18 @@ from apps.products.services import deactivate_product
 from apps.stores.mixins import StoreScopedMixin
 
 
-def _parse_decimal(raw: str | None) -> Decimal | None:
-    if raw is None or raw == "":
-        return None
-    try:
-        return Decimal(raw)
-    except (InvalidOperation, TypeError):
-        return None
-
-
-def _parse_int(raw: str | None) -> int | None:
-    if raw is None or raw == "":
-        return None
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
+PRODUCT_ORDERINGS = frozenset(
+    {
+        "name",
+        "-name",
+        "updated_at",
+        "-updated_at",
+        "stock_quantity",
+        "-stock_quantity",
+        "price",
+        "-price",
+    }
+)
 
 
 class ProductStoreMixin(StoreScopedMixin):
@@ -52,27 +48,24 @@ class ProductStoreMixin(StoreScopedMixin):
 
 @extend_schema_view(
     get=extend_schema(tags=["products"], summary="List products"),
-    post=extend_schema(tags=["products"], summary="Create product", request=ProductCreateSerializer),
+    post=extend_schema(
+        tags=["products"],
+        summary="Create product",
+        request=ProductCreateSerializer,
+        responses={201: ProductSerializer},
+    ),
 )
-class ProductListCreateView(ProductStoreMixin, generics.ListCreateAPIView):
-    def get_throttles(self):
-        if self.request.method == "POST":
-            self.throttle_scope = "writes"
-            return super().get_throttles()
-        return []
+class ProductListCreateView(
+    WritesThrottleOnPostMixin,
+    InputOutputSerializerMixin,
+    ProductStoreMixin,
+    generics.ListCreateAPIView,
+):
+    serializer_class = ProductSerializer
+    input_serializer_class = ProductCreateSerializer
 
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return ProductCreateSerializer
-        return ProductSerializer
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["store"] = self.store
-        return context
-
-    def get_queryset(self):
-        qs = super().get_queryset()
+    def filter_queryset(self, queryset):
+        qs = super().filter_queryset(queryset)
         q = self.request.query_params.get("q")
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(sku__icontains=q))
@@ -94,52 +87,44 @@ class ProductListCreateView(ProductStoreMixin, generics.ListCreateAPIView):
                 is_active=True,
                 stock_quantity__gt=F("low_stock_threshold"),
             )
-        price_min = _parse_decimal(self.request.query_params.get("price_min"))
+        price_min = parse_decimal(self.request.query_params.get("price_min"))
         if price_min is not None:
             qs = qs.filter(price__gte=price_min)
-        price_max = _parse_decimal(self.request.query_params.get("price_max"))
+        price_max = parse_decimal(self.request.query_params.get("price_max"))
         if price_max is not None:
             qs = qs.filter(price__lte=price_max)
-        stock_min = _parse_int(self.request.query_params.get("stock_min"))
+        stock_min = parse_int(self.request.query_params.get("stock_min"))
         if stock_min is not None:
             qs = qs.filter(stock_quantity__gte=stock_min)
-        stock_max = _parse_int(self.request.query_params.get("stock_max"))
+        stock_max = parse_int(self.request.query_params.get("stock_max"))
         if stock_max is not None:
             qs = qs.filter(stock_quantity__lte=stock_max)
-        ordering = self.request.query_params.get("ordering") or "name"
-        allowed = {
-            "name",
-            "-name",
-            "updated_at",
-            "-updated_at",
-            "stock_quantity",
-            "-stock_quantity",
-            "price",
-            "-price",
-        }
-        if ordering in allowed:
-            qs = qs.order_by(ordering)
-        return qs
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        product = serializer.save()
-        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+        ordering = resolve_ordering(
+            self.request.query_params.get("ordering"),
+            allowed=PRODUCT_ORDERINGS,
+            default="name",
+        )
+        return qs.order_by(ordering)
 
 
 @extend_schema_view(
     get=extend_schema(tags=["products"], summary="Get product"),
-    patch=extend_schema(tags=["products"], summary="Update product", request=ProductUpdateSerializer),
+    patch=extend_schema(
+        tags=["products"],
+        summary="Update product",
+        request=ProductUpdateSerializer,
+        responses={200: ProductSerializer},
+    ),
     delete=extend_schema(tags=["products"], summary="Deactivate product"),
 )
-class ProductDetailView(ProductStoreMixin, generics.RetrieveUpdateDestroyAPIView):
+class ProductDetailView(
+    InputOutputSerializerMixin,
+    ProductStoreMixin,
+    generics.RetrieveUpdateDestroyAPIView,
+):
     http_method_names = ["get", "patch", "delete", "head", "options"]
-
-    def get_serializer_class(self):
-        if self.request.method == "PATCH":
-            return ProductUpdateSerializer
-        return ProductSerializer
+    serializer_class = ProductSerializer
+    input_serializer_class = ProductUpdateSerializer
 
     def perform_destroy(self, instance):
         deactivate_product(product=instance)
@@ -149,14 +134,6 @@ class ProductDetailView(ProductStoreMixin, generics.RetrieveUpdateDestroyAPIView
         self.perform_destroy(instance)
         instance.refresh_from_db()
         return Response(ProductSerializer(instance).data)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        product = serializer.save()
-        return Response(ProductSerializer(product).data)
 
 
 class AdjustStockView(ProductStoreMixin, APIView):

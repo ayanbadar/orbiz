@@ -100,6 +100,7 @@ export type OrderListParams = {
   q?: string;
   number?: string;
   customer_name?: string;
+  customer_id?: number;
   fulfilment_status?: FulfilmentStatus;
   payment_status?: PaymentStatus;
   total_min?: string;

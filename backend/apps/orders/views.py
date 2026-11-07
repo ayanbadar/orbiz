@@ -1,5 +1,4 @@
 from datetime import datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
 
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.utils import timezone
@@ -10,6 +9,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.mixins import InputOutputSerializerMixin, WritesThrottleOnPostMixin
+from apps.common.query_params import parse_decimal, parse_int, resolve_ordering
 from apps.orders.models import Order, OrderEvent, OrderLine
 from apps.orders.serializers import (
     OrderConfirmSerializer,
@@ -24,13 +25,20 @@ from apps.payments.services import notify_order_confirmed
 from apps.stores.mixins import StoreScopedMixin
 
 
-def _parse_decimal(raw: str | None) -> Decimal | None:
-    if raw is None or raw == "":
-        return None
-    try:
-        return Decimal(raw)
-    except (InvalidOperation, TypeError):
-        return None
+ORDER_ORDERINGS = frozenset(
+    {
+        "created_at",
+        "-created_at",
+        "total",
+        "-total",
+        "number",
+        "-number",
+        "customer__name",
+        "-customer__name",
+        "updated_at",
+        "-updated_at",
+    }
+)
 
 
 def _as_aware(value: datetime) -> datetime:
@@ -86,33 +94,31 @@ class OrderStoreMixin(StoreScopedMixin):
 @extend_schema_view(
     get=extend_schema(tags=["orders"], summary="List orders"),
     post=extend_schema(
-        tags=["orders"], summary="Create draft order", request=OrderCreateSerializer
+        tags=["orders"],
+        summary="Create draft order",
+        request=OrderCreateSerializer,
+        responses={201: OrderSerializer},
     ),
 )
-class OrderListCreateView(OrderStoreMixin, generics.ListCreateAPIView):
-    def get_throttles(self):
-        if self.request.method == "POST":
-            self.throttle_scope = "writes"
-            return super().get_throttles()
-        return []
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return OrderCreateSerializer
-        return OrderListSerializer
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["store"] = self.store
-        return context
+class OrderListCreateView(
+    WritesThrottleOnPostMixin,
+    InputOutputSerializerMixin,
+    OrderStoreMixin,
+    generics.ListCreateAPIView,
+):
+    serializer_class = OrderListSerializer
+    input_serializer_class = OrderCreateSerializer
+    output_serializer_class = OrderSerializer
 
     def get_queryset(self):
-        # List serializer only needs customer; detail prefetch stays on the mixin.
+        # List serializer only needs customer; detail prefetch stays on the mixin
+        # (POST re-reads the created order through it for the full response).
         if self.request.method == "GET":
-            qs = Order.objects.filter(store=self.store).select_related("customer")
-        else:
-            qs = super().get_queryset()
-        qs = qs.order_by("-created_at")
+            return Order.objects.filter(store=self.store).select_related("customer")
+        return super().get_queryset()
+
+    def filter_queryset(self, queryset):
+        qs = super().filter_queryset(queryset)
         q = self.request.query_params.get("q")
         if q:
             line_match = OrderLine.objects.filter(
@@ -130,16 +136,19 @@ class OrderListCreateView(OrderStoreMixin, generics.ListCreateAPIView):
         customer_name = self.request.query_params.get("customer_name")
         if customer_name:
             qs = qs.filter(customer__name__icontains=customer_name)
+        customer_id = parse_int(self.request.query_params.get("customer_id"))
+        if customer_id is not None:
+            qs = qs.filter(customer_id=customer_id)
         fulfilment = self.request.query_params.get("fulfilment_status")
         if fulfilment:
             qs = qs.filter(fulfilment_status=fulfilment)
         payment = self.request.query_params.get("payment_status")
         if payment:
             qs = qs.filter(payment_status=payment)
-        total_min = _parse_decimal(self.request.query_params.get("total_min"))
+        total_min = parse_decimal(self.request.query_params.get("total_min"))
         if total_min is not None:
             qs = qs.filter(total__gte=total_min)
-        total_max = _parse_decimal(self.request.query_params.get("total_max"))
+        total_max = parse_decimal(self.request.query_params.get("total_max"))
         if total_max is not None:
             qs = qs.filter(total__lte=total_max)
         created_after = _parse_day_start(self.request.query_params.get("created_after"))
@@ -150,58 +159,31 @@ class OrderListCreateView(OrderStoreMixin, generics.ListCreateAPIView):
         )
         if created_before is not None:
             qs = qs.filter(created_at__lt=created_before)
-        ordering = self.request.query_params.get("ordering") or "-created_at"
-        allowed = {
-            "created_at",
-            "-created_at",
-            "total",
-            "-total",
-            "number",
-            "-number",
-            "customer__name",
-            "-customer__name",
-            "updated_at",
-            "-updated_at",
-        }
-        if ordering in allowed:
-            qs = qs.order_by(ordering)
-        return qs
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        order = serializer.save()
-        order = OrderStoreMixin.get_queryset(self).get(pk=order.pk)
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        ordering = resolve_ordering(
+            self.request.query_params.get("ordering"),
+            allowed=ORDER_ORDERINGS,
+            default="-created_at",
+        )
+        return qs.order_by(ordering)
 
 
 @extend_schema_view(
     get=extend_schema(tags=["orders"], summary="Get order"),
     patch=extend_schema(
-        tags=["orders"], summary="Update draft order", request=OrderUpdateSerializer
+        tags=["orders"],
+        summary="Update draft order",
+        request=OrderUpdateSerializer,
+        responses={200: OrderSerializer},
     ),
 )
-class OrderDetailView(OrderStoreMixin, generics.RetrieveUpdateAPIView):
+class OrderDetailView(
+    InputOutputSerializerMixin,
+    OrderStoreMixin,
+    generics.RetrieveUpdateAPIView,
+):
     http_method_names = ["get", "patch", "head", "options"]
-
-    def get_serializer_class(self):
-        if self.request.method == "PATCH":
-            return OrderUpdateSerializer
-        return OrderSerializer
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["store"] = self.store
-        return context
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        order = serializer.save()
-        order = self.get_queryset().get(pk=order.pk)
-        return Response(OrderSerializer(order).data)
+    serializer_class = OrderSerializer
+    input_serializer_class = OrderUpdateSerializer
 
 
 class OrderConfirmView(OrderStoreMixin, APIView):

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormattedTime } from "@/components/formatted-time";
@@ -87,7 +87,14 @@ export function OrderDetailPage() {
               <Card className="rounded-[24px] ring-0">
                 <CardHeader>
                   <CardTitle>Customer</CardTitle>
-                  <CardDescription>{order.customer.name}</CardDescription>
+                  <CardDescription>
+                    <Link
+                      to={ROUTES.customers.detail(order.customer.id)}
+                      className="font-semibold text-foreground underline-offset-4 hover:underline"
+                    >
+                      {order.customer.name}
+                    </Link>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm text-muted-foreground">
                   {order.customer.email ? <p>{order.customer.email}</p> : null}

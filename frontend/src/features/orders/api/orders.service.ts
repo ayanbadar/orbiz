@@ -19,6 +19,7 @@ export class OrderService {
         q: params.q || undefined,
         number: params.number || undefined,
         customer_name: params.customer_name || undefined,
+        customer_id: params.customer_id,
         fulfilment_status: params.fulfilment_status || undefined,
         payment_status: params.payment_status || undefined,
         total_min: params.total_min || undefined,

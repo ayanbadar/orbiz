@@ -135,6 +135,40 @@ export function readNumberRange(model: unknown): NumberRange | null {
   }
 }
 
+/** URL/nuqs form of a number range: each bound is a numeric string or null. */
+export type NumberBounds = {
+  min: string | null;
+  max: string | null;
+};
+
+function formatBound(value: number | null): string | null {
+  if (value == null || Number.isNaN(value)) return null;
+  return String(value);
+}
+
+function parseBound(raw: string | null): number | null {
+  if (raw == null) return null;
+  const value = Number(raw);
+  return Number.isNaN(value) ? null : value;
+}
+
+/** Read a number column filter as URL-ready string bounds (both null when unset). */
+export function readNumberBounds(model: unknown): NumberBounds {
+  const range = readNumberRange(model);
+  return {
+    min: range ? formatBound(range.min) : null,
+    max: range ? formatBound(range.max) : null,
+  };
+}
+
+/** Build a number column filter from URL string bounds; ignores non-numeric input. */
+export function numberRangeModelFromBounds(
+  min: string | null,
+  max: string | null,
+): NumberFilterModel | null {
+  return numberRangeModel(parseBound(min), parseBound(max));
+}
+
 export type DateRange = {
   after: string | null;
   before: string | null;
