@@ -2,13 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 import { z } from "zod";
-import { cn } from "cn";
 
 import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormField } from "@/components/form-field";
 import { FormattedTime } from "@/components/formatted-time";
 import { PageBackLink } from "@/components/page-back-link";
 import { QueryState } from "@/components/query-state";
+import { StatTile } from "@/components/stat-tile";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -151,7 +151,7 @@ export function ProductDetailPage() {
                 <Button
                   asChild
                   variant="secondary"
-                  className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                  size="cta"
                 >
                   <Link to={ROUTES.products.edit(product.id)}>Edit</Link>
                 </Button>
@@ -159,7 +159,7 @@ export function ProductDetailPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                    size="cta"
                     disabled={deactivateProduct.isPending}
                     onClick={() => void onDeactivate()}
                   >
@@ -171,7 +171,7 @@ export function ProductDetailPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                    size="cta"
                     disabled={activateProduct.isPending}
                     onClick={() => void onActivate()}
                   >
@@ -182,12 +182,12 @@ export function ProductDetailPage() {
             </header>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <Stat
+              <StatTile
                 label="Stock"
                 value={String(product.stock_quantity)}
                 valueClassName="tabular-nums"
               />
-              <Stat
+              <StatTile
                 label="Low-stock at"
                 value={String(product.low_stock_threshold)}
                 valueClassName="tabular-nums"
@@ -235,7 +235,7 @@ export function ProductDetailPage() {
                   <Button
                     type="submit"
                     disabled={adjustStock.isPending}
-                    className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                    size="cta"
                   >
                     {adjustStock.isPending ? "Saving…" : "Apply adjustment"}
                   </Button>
@@ -325,27 +325,5 @@ export function ProductDetailPage() {
         ) : null}
       </QueryState>
     </div>
-  );
-}
-
-/** Detail metric tile — built on shared Card so list/detail stay consistent. */
-function Stat({
-  label,
-  value,
-  valueClassName,
-}: {
-  label: string;
-  value: string;
-  valueClassName?: string;
-}) {
-  return (
-    <Card size="sm" className="rounded-[24px] ring-0">
-      <CardHeader className="gap-1">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className={cn("text-xl font-semibold", valueClassName)}>
-          {value}
-        </CardTitle>
-      </CardHeader>
-    </Card>
   );
 }

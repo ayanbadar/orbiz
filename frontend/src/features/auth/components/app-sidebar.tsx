@@ -1,4 +1,11 @@
-import { ClipboardList, Package, UserRound, X, type LucideIcon } from "lucide-react";
+import {
+  ClipboardList,
+  Package,
+  UserRound,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { Logo } from "@/components/logo";
@@ -20,6 +27,11 @@ const NAV_ITEMS: NavItem[] = [
     to: ROUTES.orders.root(),
     label: "Orders",
     icon: ClipboardList,
+  },
+  {
+    to: ROUTES.customers.root(),
+    label: "Customers",
+    icon: Users,
   },
   {
     to: ROUTES.products.root(),

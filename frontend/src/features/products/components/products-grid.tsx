@@ -1,14 +1,9 @@
 import type {
   ColDef,
   FilterModel,
-  GridOptions,
   ICellRendererParams,
-  RowClickedEvent,
-  SortChangedEvent,
 } from "ag-grid-community";
-import { AgGridReact } from "ag-grid-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 
 import { DataGrid } from "@/components/data-grid";
 import { ROUTES } from "@/constants/routes";
@@ -16,6 +11,7 @@ import { ProductAvailabilityBadge } from "@/features/products/components/product
 import { ProductImage } from "@/features/products/components/product-image";
 import type { Product, ProductListOrdering } from "@/features/products/types";
 import { getProductAvailabilityLabel } from "@/features/products/utils/product-status";
+import { useServerGrid } from "@/hooks/use-server-grid";
 import {
   SERVER_FILTER_PARAMS,
   serverNumberFilter,
@@ -31,7 +27,13 @@ type Props = {
 };
 
 /** Server `ordering` fields that map 1:1 to grid columns. */
-const SERVER_SORT_FIELDS = new Set(["name", "price", "stock_quantity"]);
+const SERVER_SORT_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "price",
+  "stock_quantity",
+]);
+
+const productHref = (product: Product) => ROUTES.products.detail(product.id);
 
 function ProductCell({ data }: ICellRendererParams<Product>) {
   if (!data) {
@@ -72,16 +74,6 @@ function PriceCell({ data }: ICellRendererParams<Product>) {
   );
 }
 
-function parseOrdering(ordering: ProductListOrdering): {
-  colId: string;
-  sort: "asc" | "desc";
-} {
-  if (ordering.startsWith("-")) {
-    return { colId: ordering.slice(1), sort: "desc" };
-  }
-  return { colId: ordering, sort: "asc" };
-}
-
 /** Presentational AG Grid for the products list — page owns fetching. */
 export function ProductsGrid({
   products,
@@ -90,17 +82,14 @@ export function ProductsGrid({
   filterModel,
   onFilterModelChange,
 }: Props) {
-  const navigate = useNavigate();
-  const gridRef = useRef<AgGridReact<Product>>(null);
-  const { colId: sortColId, sort: sortDir } = parseOrdering(ordering);
-
-  useEffect(() => {
-    const api = gridRef.current?.api;
-    if (!api || products.length === 0) {
-      return;
-    }
-    api.ensureIndexVisible(0, "top");
-  }, [products]);
+  const { sortFor, gridProps } = useServerGrid({
+    rows: products,
+    ordering,
+    defaultOrdering: "name",
+    sortableColIds: SERVER_SORT_FIELDS,
+    onOrderingChange,
+    rowHref: productHref,
+  });
 
   const columnDefs = useMemo<ColDef<Product>[]>(
     () => [
@@ -112,8 +101,8 @@ export function ProductsGrid({
         cellRenderer: ProductCell,
         filter: serverTextFilter,
         comparator: () => 0,
-        sort: sortColId === "name" ? sortDir : undefined,
-        initialSort: sortColId === "name" ? sortDir : undefined,
+        sort: sortFor("name"),
+        initialSort: sortFor("name"),
       },
       {
         headerName: "SKU",
@@ -133,7 +122,7 @@ export function ProductsGrid({
         valueGetter: ({ data }) =>
           data ? Number(data.price) : undefined,
         comparator: () => 0,
-        sort: sortColId === "price" ? sortDir : undefined,
+        sort: sortFor("price"),
       },
       {
         headerName: "Stock",
@@ -143,7 +132,7 @@ export function ProductsGrid({
         cellClass: "tabular-nums",
         filter: serverNumberFilter,
         comparator: () => 0,
-        sort: sortColId === "stock_quantity" ? sortDir : undefined,
+        sort: sortFor("stock_quantity"),
       },
       {
         headerName: "Status",
@@ -163,66 +152,15 @@ export function ProductsGrid({
         cellClass: "status-badge-cell",
       },
     ],
-    [sortColId, sortDir],
-  );
-
-  const getRowId = useCallback(
-    (params: { data: Product }) => String(params.data.id),
-    [],
-  );
-
-  const onRowClicked = useCallback(
-    (event: RowClickedEvent<Product>) => {
-      const id = event.data?.id;
-      if (id != null) {
-        void navigate(ROUTES.products.detail(id));
-      }
-    },
-    [navigate],
-  );
-
-  const onSortChanged = useCallback(
-    (event: SortChangedEvent<Product>) => {
-      const sorted = event.api
-        .getColumnState()
-        .find((column) => column.sort != null);
-      if (!sorted?.colId || !sorted.sort) {
-        onOrderingChange("name");
-        return;
-      }
-      if (!SERVER_SORT_FIELDS.has(sorted.colId)) {
-        return;
-      }
-      const next =
-        sorted.sort === "desc"
-          ? (`-${sorted.colId}` as ProductListOrdering)
-          : (sorted.colId as ProductListOrdering);
-      if (next !== ordering) {
-        onOrderingChange(next);
-      }
-    },
-    [onOrderingChange, ordering],
-  );
-
-  const gridOptions = useMemo(
-    (): GridOptions<Product> => ({
-      rowStyle: { cursor: "pointer" },
-      onSortChanged,
-      suppressOverlays: ["noRows"],
-    }),
-    [onSortChanged],
+    [sortFor],
   );
 
   return (
     <DataGrid<Product>
-      gridRef={gridRef}
-      rowData={products}
+      {...gridProps}
       columnDefs={columnDefs}
-      getRowId={getRowId}
-      onRowClicked={onRowClicked}
       filterModel={filterModel}
       onFilterModelChange={onFilterModelChange}
-      gridOptions={gridOptions}
     />
   );
 }

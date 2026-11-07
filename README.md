@@ -44,7 +44,14 @@ Sample Channel3 search in the UI: `black hoodie`.
 - Processing / shipped / completed require `payment_status=paid` unless `allow_unpaid` is set explicitly (e.g. COD).
 - `POST .../abandon-payment/` cancels a pending payment attempt without cancelling the order; `POST .../mark-paid/` remains an offline demo fallback.
 - Cancel restores stock at most once (order row locked; second cancel → 409).
-- Thin customers API supports order create (`/api/v1/customers/`).
+
+## Customers (§2.6)
+
+- `/customers` lists every customer with **order count** and **last order date**, computed in one annotated query (`Count`/`Max` over `orders`) — no N+1 as the list grows.
+- Filter by name/email/phone or an order-count range (`orders_min`/`orders_max`); sort by name, order count, or last order (customers with no orders always sort last).
+- Customer profile shows contact details, internal notes, and the 5 most recent orders, with a link into the Orders grid pre-filtered to that customer (`/orders?customer_id=`).
+- The order form's "Add customer" opens a dialog with the full form (name, email, phone, notes) instead of a name-only field, so a seller can capture an email on the spot for PayPal invoices and confirmations.
+- No delete: `Order.customer` is `PROTECT`, so a customer with orders can't be removed from under them.
 
 ## Product images (S3-ready)
 

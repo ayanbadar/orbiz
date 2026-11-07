@@ -20,6 +20,23 @@ class CustomerSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
+class CustomerSummarySerializer(CustomerSerializer):
+    """Customer plus order stats; needs the annotated customers queryset."""
+
+    order_count = serializers.IntegerField(read_only=True)
+    # Orders not yet completed or cancelled — flags who still needs a seller's attention.
+    open_order_count = serializers.IntegerField(read_only=True)
+    last_order_at = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    class Meta(CustomerSerializer.Meta):
+        fields = [
+            *CustomerSerializer.Meta.fields,
+            "order_count",
+            "open_order_count",
+            "last_order_at",
+        ]
+
+
 class CustomerCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer

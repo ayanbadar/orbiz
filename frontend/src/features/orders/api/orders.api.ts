@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { CUSTOMER_QUERY_KEYS } from "@/features/customers/api/customers.keys";
 import { ORDER_QUERY_KEYS } from "@/features/orders/api/orders.keys";
 import { OrderService } from "@/features/orders/api/orders.service";
 import { isPaymentEmailInFlight } from "@/features/orders/utils/paypal-order";
@@ -20,6 +21,8 @@ import type {
 async function invalidateOrders(queryClient: ReturnType<typeof useQueryClient>) {
   await queryClient.invalidateQueries({ queryKey: ORDER_QUERY_KEYS.all });
   await queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
+  // Customer order counts / last-order dates move with order writes.
+  await queryClient.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.all });
 }
 
 export function useOrders(

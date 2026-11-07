@@ -12,6 +12,9 @@ import {
 } from "@/features/auth/components/route-guards";
 import { SignInPage } from "@/features/auth/components/sign-in-page";
 import { SignUpPage } from "@/features/auth/components/sign-up-page";
+import { CustomerDetailPage } from "@/features/customers/components/customer-detail-page";
+import { CustomerFormPage } from "@/features/customers/components/customer-form-page";
+import { CustomersPage } from "@/features/customers/components/customers-page";
 import { DemoPage } from "@/features/demo/components/demo-page";
 import { OrderDetailPage } from "@/features/orders/components/order-detail-page";
 import { OrderFormPage } from "@/features/orders/components/order-form-page";
@@ -148,6 +151,46 @@ export function App() {
           <RequireAuth>
             <AppShell>
               <ProductDetailPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.customers.root()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CustomersPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.customers.new()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CustomerFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.customers.edit(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CustomerFormPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.customers.detail(":id")}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <CustomerDetailPage />
             </AppShell>
           </RequireAuth>
         }

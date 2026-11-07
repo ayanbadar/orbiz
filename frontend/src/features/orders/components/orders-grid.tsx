@@ -1,14 +1,9 @@
 import type {
   ColDef,
   FilterModel,
-  GridOptions,
   ICellRendererParams,
-  RowClickedEvent,
-  SortChangedEvent,
 } from "ag-grid-community";
-import { AgGridReact } from "ag-grid-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 
 import { DataGrid } from "@/components/data-grid";
 import { FormattedTime } from "@/components/formatted-time";
@@ -20,6 +15,7 @@ import {
   getFulfilmentLabel,
   getPaymentLabel,
 } from "@/features/orders/utils/order-status";
+import { useServerGrid } from "@/hooks/use-server-grid";
 import { formatRelativeTime } from "@/lib/format-datetime";
 import {
   SERVER_FILTER_PARAMS,
@@ -36,12 +32,14 @@ type Props = {
   onFilterModelChange: (model: FilterModel) => void;
 };
 
-const SERVER_SORT_FIELDS = new Set([
+const SERVER_SORT_FIELDS: ReadonlySet<string> = new Set([
   "number",
   "total",
   "created_at",
   "customer__name",
 ]);
+
+const orderHref = (order: OrderListItem) => ROUTES.orders.detail(order.id);
 
 function FulfilmentCell({ data }: ICellRendererParams<OrderListItem>) {
   if (!data) return null;
@@ -83,16 +81,6 @@ function TotalCell({ data }: ICellRendererParams<OrderListItem>) {
   );
 }
 
-function parseOrdering(ordering: OrderListOrdering): {
-  colId: string;
-  sort: "asc" | "desc";
-} {
-  if (ordering.startsWith("-")) {
-    return { colId: ordering.slice(1), sort: "desc" };
-  }
-  return { colId: ordering, sort: "asc" };
-}
-
 /** Presentational AG Grid for the orders list — page owns fetching. */
 export function OrdersGrid({
   orders,
@@ -101,15 +89,14 @@ export function OrdersGrid({
   filterModel,
   onFilterModelChange,
 }: Props) {
-  const navigate = useNavigate();
-  const gridRef = useRef<AgGridReact<OrderListItem>>(null);
-  const { colId: sortColId, sort: sortDir } = parseOrdering(ordering);
-
-  useEffect(() => {
-    const api = gridRef.current?.api;
-    if (!api || orders.length === 0) return;
-    api.ensureIndexVisible(0, "top");
-  }, [orders]);
+  const { sortFor, gridProps } = useServerGrid({
+    rows: orders,
+    ordering,
+    defaultOrdering: "-created_at",
+    sortableColIds: SERVER_SORT_FIELDS,
+    onOrderingChange,
+    rowHref: orderHref,
+  });
 
   const columnDefs = useMemo<ColDef<OrderListItem>[]>(
     () => [
@@ -121,8 +108,8 @@ export function OrdersGrid({
         sortable: true,
         filter: serverTextFilter,
         comparator: () => 0,
-        sort: sortColId === "number" ? sortDir : undefined,
-        initialSort: sortColId === "number" ? sortDir : undefined,
+        sort: sortFor("number"),
+        initialSort: sortFor("number"),
       },
       {
         headerName: "Customer",
@@ -134,7 +121,7 @@ export function OrdersGrid({
         sortable: true,
         filter: serverTextFilter,
         comparator: () => 0,
-        sort: sortColId === "customer__name" ? sortDir : undefined,
+        sort: sortFor("customer__name"),
       },
       {
         headerName: "Total",
@@ -146,7 +133,7 @@ export function OrdersGrid({
         valueGetter: ({ data }) =>
           data ? Number(data.total) : undefined,
         comparator: () => 0,
-        sort: sortColId === "total" ? sortDir : undefined,
+        sort: sortFor("total"),
         cellRenderer: TotalCell,
       },
       {
@@ -191,72 +178,21 @@ export function OrdersGrid({
         sortable: true,
         filter: serverDateFilter,
         comparator: () => 0,
-        sort: sortColId === "created_at" ? sortDir : undefined,
+        sort: sortFor("created_at"),
         cellRenderer: CreatedCell,
         valueFormatter: (p) =>
           p.value ? formatRelativeTime(String(p.value)) : "",
       },
     ],
-    [sortColId, sortDir],
-  );
-
-  const getRowId = useCallback(
-    (params: { data: OrderListItem }) => String(params.data.id),
-    [],
-  );
-
-  const onRowClicked = useCallback(
-    (event: RowClickedEvent<OrderListItem>) => {
-      const id = event.data?.id;
-      if (id != null) {
-        void navigate(ROUTES.orders.detail(id));
-      }
-    },
-    [navigate],
-  );
-
-  const onSortChanged = useCallback(
-    (event: SortChangedEvent<OrderListItem>) => {
-      const sorted = event.api
-        .getColumnState()
-        .find((column) => column.sort != null);
-      if (!sorted?.colId || !sorted.sort) {
-        onOrderingChange("-created_at");
-        return;
-      }
-      if (!SERVER_SORT_FIELDS.has(sorted.colId)) {
-        return;
-      }
-      const next =
-        sorted.sort === "desc"
-          ? (`-${sorted.colId}` as OrderListOrdering)
-          : (sorted.colId as OrderListOrdering);
-      if (next !== ordering) {
-        onOrderingChange(next);
-      }
-    },
-    [onOrderingChange, ordering],
-  );
-
-  const gridOptions = useMemo(
-    (): GridOptions<OrderListItem> => ({
-      rowStyle: { cursor: "pointer" },
-      onSortChanged,
-      suppressOverlays: ["noRows"],
-    }),
-    [onSortChanged],
+    [sortFor],
   );
 
   return (
     <DataGrid<OrderListItem>
-      gridRef={gridRef}
-      rowData={orders}
+      {...gridProps}
       columnDefs={columnDefs}
-      getRowId={getRowId}
-      onRowClicked={onRowClicked}
       filterModel={filterModel}
       onFilterModelChange={onFilterModelChange}
-      gridOptions={gridOptions}
     />
   );
 }
