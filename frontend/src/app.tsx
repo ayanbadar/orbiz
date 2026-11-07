@@ -18,6 +18,7 @@ import { OrderFormPage } from "@/features/orders/components/order-form-page";
 import { OrdersPage } from "@/features/orders/components/orders-page";
 import { ProductDetailPage } from "@/features/products/components/product-detail-page";
 import { ProductFormPage } from "@/features/products/components/product-form-page";
+import { PaymentReturnPage } from "@/features/payments/components/payment-return-page";
 import { ProductsPage } from "@/features/products/components/products-page";
 import { StoreOnboardingPage } from "@/features/stores/components/store-onboarding-page";
 
@@ -50,6 +51,7 @@ export function App() {
         }
       />
       <Route path={ROUTES.resetPassword()} element={<ResetPasswordPage />} />
+      <Route path={ROUTES.pay.return()} element={<PaymentReturnPage />} />
       <Route
         path={ROUTES.account()}
         element={

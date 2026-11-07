@@ -7,14 +7,17 @@ from apps.notifications.models import EmailLog
 class EmailLogAdmin(admin.ModelAdmin):
     list_display = ("recipient", "subject", "kind", "status", "created_at", "sent_at")
     list_filter = ("status", "kind")
-    search_fields = ("recipient", "subject", "body")
+    search_fields = ("recipient", "subject", "body", "reference")
     ordering = ("-created_at",)
     readonly_fields = (
         "kind",
+        "reference",
         "recipient",
         "sender",
+        "reply_to",
         "subject",
         "body",
+        "html_body",
         "status",
         "error_message",
         "created_at",

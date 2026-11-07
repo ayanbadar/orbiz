@@ -7,9 +7,11 @@ import {
 
 import { ORDER_QUERY_KEYS } from "@/features/orders/api/orders.keys";
 import { OrderService } from "@/features/orders/api/orders.service";
+import { isPaymentEmailInFlight } from "@/features/orders/utils/paypal-order";
 import { PRODUCT_QUERY_KEYS } from "@/features/products/api/products.keys";
 import type {
   FulfilmentStatus,
+  OrderConfirmRequest,
   OrderCreateRequest,
   OrderListParams,
   OrderUpdateRequest,
@@ -37,6 +39,9 @@ export function useOrder(id: number) {
     queryKey: ORDER_QUERY_KEYS.detail(id),
     queryFn: () => OrderService.get(id),
     enabled: Number.isFinite(id) && id > 0,
+    // The email goes out on a worker after the request returns; follow it to sent/failed.
+    refetchInterval: (query) =>
+      isPaymentEmailInFlight(query.state.data) ? 2000 : false,
   });
 }
 
@@ -63,7 +68,7 @@ export function useUpdateOrder(id: number) {
 export function useConfirmOrder(id: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => OrderService.confirm(id),
+    mutationFn: (body: OrderConfirmRequest) => OrderService.confirm(id, body),
     onSuccess: async () => {
       await invalidateOrders(queryClient);
     },

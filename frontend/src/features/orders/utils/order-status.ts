@@ -15,6 +15,8 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   paid: "Paid",
   failed: "Failed",
   cancelled: "Cancelled",
+  partially_refunded: "Partially refunded",
+  refunded: "Refunded",
 };
 
 const FULFILMENT_STATUSES = Object.keys(
@@ -79,10 +81,13 @@ export function getPaymentBadgeClassName(status: PaymentStatus): string {
     case "paid":
       return "bg-muted text-positive-deep";
     case "pending":
+    case "partially_refunded":
       return "bg-warning text-warning-content";
     case "failed":
     case "cancelled":
       return "bg-negative-bg text-white";
+    case "refunded":
+      return "bg-secondary text-foreground";
     case "unpaid":
     default:
       return "bg-secondary text-muted-foreground";

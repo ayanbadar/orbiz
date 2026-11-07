@@ -24,6 +24,8 @@ class Order(models.Model):
         PAID = "paid", "Paid"
         FAILED = "failed", "Failed"
         CANCELLED = "cancelled", "Cancelled"
+        PARTIALLY_REFUNDED = "partially_refunded", "Partially refunded"
+        REFUNDED = "refunded", "Refunded"
 
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="orders")
     number = models.CharField(max_length=32)
@@ -126,6 +128,11 @@ class OrderEvent(models.Model):
         PAYMENT_STATUS_CHANGED = "payment_status_changed", "Payment status changed"
         CANCELLED = "cancelled", "Cancelled"
         NOTE = "note", "Note"
+        PAYMENT_APPROVED = "payment_approved", "Payment approved"
+        PAYMENT_REFUNDED = "payment_refunded", "Payment refunded"
+        INVOICE_SENT = "invoice_sent", "Invoice sent"
+        INVOICE_CANCELLED = "invoice_cancelled", "Invoice cancelled"
+        PAYMENT_LINK_EMAILED = "payment_link_emailed", "Payment link emailed"
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="events")
     event_type = models.CharField(max_length=32, choices=EventType.choices)

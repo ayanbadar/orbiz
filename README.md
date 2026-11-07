@@ -42,9 +42,8 @@ Sample Channel3 search in the UI: `black hoodie`.
 - Draft → **Confirm** deducts stock under lock (`adjust_stock` reason `sale:{number}`); cancel restores with `cancel-restore:{number}`.
 - **Fulfilment** and **payment** statuses are separate badges. Confirm sets fulfilment `unfulfilled` and payment `pending`.
 - Processing / shipped / completed require `payment_status=paid` unless `allow_unpaid` is set explicitly (e.g. COD).
-- `POST .../abandon-payment/` cancels a pending payment attempt without cancelling the order; `POST .../mark-paid/` is demo-only until §2.7 webhooks.
+- `POST .../abandon-payment/` cancels a pending payment attempt without cancelling the order; `POST .../mark-paid/` remains an offline demo fallback.
 - Cancel restores stock at most once (order row locked; second cancel → 409).
-- PayPal Sandbox checkout is stubbed on order detail until §2.7.
 - Thin customers API supports order create (`/api/v1/customers/`).
 
 ## Product images (S3-ready)
@@ -62,13 +61,28 @@ Sample Channel3 search in the UI: `black hoodie`.
 
 See `docs/postman-openapi.md` — import from `http://localhost:8000/api/schema/`.
 
-## PayPal — payment path
+## PayPal Sandbox (§2.7)
 
-- Checkout and money stay on **Orbiz → PayPal Sandbox** (§2.7), after Orders (§2.4).
+- Credentials are **server-side only** (`PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE`, `PAYPAL_WEBHOOK_ID` in `backend/.env` — never `VITE_*`).
+- Order detail → **Create PayPal checkout** → approve in Sandbox → the approval webhook captures on the server (or return/`capture`) → `payment_status=paid`.
+- **Send PayPal invoice**: PayPal emails the buyer an invoice (blank email = shareable link only); the `INVOICING.INVOICE.PAID` webhook marks the order paid. Only one payment request is open per order.
+- **Refund via PayPal**: full or partial, from order detail → `partially_refunded` / `refunded`. Refunds made in the PayPal dashboard sync back by webhook.
+- Webhook: `POST /api/v1/payments/webhooks/paypal/` (signature verified; duplicate event ids are ignored). Needs a public HTTPS URL (e.g. a dev tunnel with **public** visibility) and `PAYPAL_WEBHOOK_ID`. Subscribe to: `CHECKOUT.ORDER.APPROVED`, `CHECKOUT.ORDER.COMPLETED`, `CHECKOUT.ORDER.DECLINED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED`, `PAYMENT.REFUND.PENDING`, `PAYMENT.REFUND.FAILED`, `INVOICING.INVOICE.PAID`, `.CANCELLED`, `.REFUNDED`, `.SENT`, `.UPDATED`.
+- Prefer a **USD** demo store; amount/currency come from the Orbiz order. Currencies PayPal can't take (e.g. PKR) are blocked with a clear message; `PAYPAL_SUPPORTED_CURRENCIES` controls the allow-list.
+- The Sandbox app needs **Invoicing** enabled. PayPal never sends real email from Sandbox, and its Developer Dashboard → Sandbox → Notifications page was not showing any new emails (checkout receipts, refunds or invoices) when we tested — so demo the invoice through **Open invoice** / **Copy invoice link** (use a Sandbox buyer email, `sb-…@personal.example.com`, as the recipient).
+- Offline fallback: **Mark paid (demo)** when Sandbox credentials or tunnel are unavailable (such orders have no PayPal payment to refund).
 - Channel3 does not replace PayPal.
+
+### Demo sequence
+
+1. Confirm order (stock deducted, payment `pending`).
+2. Create PayPal Sandbox checkout; open the approve link — or send a PayPal invoice instead.
+3. Pay with a Sandbox buyer; Orbiz marks the order paid from PayPal's webhook (the tab can stay closed).
+4. Order shows Paid; advance fulfilment.
+5. Refund part or all of the payment from the order; the badge follows (Partially refunded / Refunded).
 
 ## Docs
 
-- Spec + tracker: `docs/2.5-products-and-inventory-feature-spec.md`
-- File map: `docs/2.5-map.md`
+- Products: `docs/2.5-products-and-inventory-feature-spec.md`, `docs/2.5-map.md`
+- PayPal: `docs/2.7-paypal-payments-feature-spec.md`, `docs/2.7-map.md`
 - Orders planning (outside repo): `E:/FlowMatx/2.4-orders-and-order-details-feature-spec.md`, `E:/FlowMatx/2.4-map.md`

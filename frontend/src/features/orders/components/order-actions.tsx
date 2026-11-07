@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { ConfirmDialogOptions } from "@/components/confirm-dialog";
@@ -12,6 +13,7 @@ import {
   useMarkOrderPaid,
   useTransitionOrder,
 } from "@/features/orders/api/orders.api";
+import { OrderConfirmDialog } from "@/features/orders/components/order-confirm-dialog";
 import type { FulfilmentStatus, Order } from "@/features/orders/types";
 
 const NEXT_FULFILMENT: Partial<Record<FulfilmentStatus, FulfilmentStatus>> = {
@@ -36,7 +38,8 @@ export function getOrderActionState(order: Order) {
   const needsPaidBeforeNext =
     Boolean(nextStatus) &&
     PAYMENT_GATED.has(nextStatus as FulfilmentStatus) &&
-    order.payment_status !== "paid";
+    order.payment_status !== "paid" &&
+    order.payment_status !== "partially_refunded";
   const canAbandonPayment =
     order.fulfilment_status === "unfulfilled" &&
     order.payment_status === "pending";
@@ -58,19 +61,19 @@ export function OrderActions({ order, confirm }: Props) {
   const transitionOrder = useTransitionOrder(order.id);
   const markPaid = useMarkOrderPaid(order.id);
   const abandonPayment = useAbandonPayment(order.id);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { nextStatus, needsPaidBeforeNext, canAbandonPayment, canMarkPaid } =
     getOrderActionState(order);
 
-  const onConfirm = async () => {
-    const ok = await confirm({
-      title: "Confirm this order?",
-      description: "Stock will be deducted for each line.",
-      confirmLabel: "Confirm order",
-    });
-    if (!ok) return;
+  const onConfirm = async (notifyCustomer: boolean) => {
     try {
-      await confirmOrder.mutateAsync();
-      toast.success("Order confirmed. Stock updated.");
+      await confirmOrder.mutateAsync({ notify_customer: notifyCustomer });
+      setConfirmOpen(false);
+      toast.success(
+        notifyCustomer
+          ? "Order confirmed. Stock updated. Confirmation email queued."
+          : "Order confirmed. Stock updated.",
+      );
     } catch (error) {
       toast.error(getErrorMessage(error, "Could not confirm order."));
     }
@@ -96,7 +99,11 @@ export function OrderActions({ order, confirm }: Props) {
   const onTransition = async () => {
     if (!nextStatus) return;
     if (needsPaidBeforeNext) {
-      toast.error("Mark payment as paid before advancing fulfilment.");
+      toast.error(
+        order.paypal_checkout || order.paypal_configured
+          ? "Complete PayPal Sandbox checkout (or Mark paid demo) before advancing fulfilment."
+          : "Mark payment as paid before advancing fulfilment.",
+      );
       return;
     }
     const label = nextStatus.replaceAll("_", " ");
@@ -116,14 +123,15 @@ export function OrderActions({ order, confirm }: Props) {
 
   const onMarkPaid = async () => {
     const ok = await confirm({
-      title: "Mark this order paid?",
-      description: "Demo only — PayPal will own this in §2.7.",
-      confirmLabel: "Mark paid",
+      title: "Mark this order paid (demo)?",
+      description:
+        "Offline demo fallback only — prefer PayPal Sandbox checkout on this page when credentials are configured.",
+      confirmLabel: "Mark paid (demo)",
     });
     if (!ok) return;
     try {
       await markPaid.mutateAsync();
-      toast.success("Payment marked paid.");
+      toast.success("Payment marked paid (demo).");
     } catch (error) {
       toast.error(getErrorMessage(error, "Could not mark paid."));
     }
@@ -155,13 +163,20 @@ export function OrderActions({ order, confirm }: Props) {
           </Button>
           <Button
             className="rounded-[24px]"
-            onClick={() => {
-              void onConfirm();
-            }}
+            onClick={() => setConfirmOpen(true)}
             disabled={confirmOrder.isPending}
           >
             Confirm order
           </Button>
+          <OrderConfirmDialog
+            order={order}
+            open={confirmOpen}
+            pending={confirmOrder.isPending}
+            onOpenChange={setConfirmOpen}
+            onSubmit={(notifyCustomer) => {
+              void onConfirm(notifyCustomer);
+            }}
+          />
         </>
       ) : null}
       {canMarkPaid ? (
