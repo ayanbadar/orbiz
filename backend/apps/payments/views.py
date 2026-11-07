@@ -13,6 +13,7 @@ from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
 from apps.payments import paypal as paypal_client
 from apps.payments.serializers import (
+    EmailLinkRequestSerializer,
     InvoiceRequestSerializer,
     PaymentCheckoutDetailSerializer,
     PaymentCheckoutSerializer,
@@ -23,6 +24,7 @@ from apps.payments.services import (
     cancel_invoice_for_order,
     capture_checkout,
     create_checkout,
+    email_payment_link,
     get_checkout_for_store,
     receive_webhook,
     refund_order,
@@ -139,6 +141,29 @@ class PaymentInvoiceCreateView(PaymentOrderMixin, APIView):
         response = self.order_response(order_id)
         response.status_code = status.HTTP_201_CREATED
         return response
+
+
+class PaymentLinkEmailView(PaymentOrderMixin, APIView):
+    throttle_scope = "payments"
+
+    @extend_schema(
+        tags=["payments"],
+        summary="Email the order's open PayPal payment link to the buyer",
+        request=EmailLinkRequestSerializer,
+        responses={200: OrderSerializer},
+    )
+    def post(self, request, order_id: int):
+        serializer = EmailLinkRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.get_order(order_id)
+        email_payment_link(
+            order_id=order_id,
+            store=self.store,
+            user=request.user,
+            recipient_email=serializer.validated_data["recipient_email"],
+            kind=serializer.validated_data["kind"],
+        )
+        return self.order_response(order_id)
 
 
 class PaymentInvoiceCancelView(PaymentOrderMixin, APIView):

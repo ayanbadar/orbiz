@@ -7,7 +7,11 @@ import {
 import { ORDER_QUERY_KEYS } from "@/features/orders/api/orders.keys";
 import { PAYMENT_QUERY_KEYS } from "@/features/payments/api/payments.keys";
 import { PaymentService } from "@/features/payments/api/payments.service";
-import type { InvoiceRequest, RefundRequest } from "@/features/payments/types";
+import type {
+  EmailLinkRequest,
+  InvoiceRequest,
+  RefundRequest,
+} from "@/features/payments/types";
 
 async function invalidatePaymentQueries(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -66,6 +70,17 @@ export function useSendPaypalInvoice(orderId: number) {
   return useMutation({
     mutationFn: (body: InvoiceRequest) =>
       PaymentService.sendInvoice(orderId, body),
+    onSuccess: async () => {
+      await invalidatePaymentQueries(queryClient, orderId);
+    },
+  });
+}
+
+export function useEmailPaymentLink(orderId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EmailLinkRequest) =>
+      PaymentService.emailLink(orderId, body),
     onSuccess: async () => {
       await invalidatePaymentQueries(queryClient, orderId);
     },

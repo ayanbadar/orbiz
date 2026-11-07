@@ -1,6 +1,8 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core import mail
+from django.test import override_settings
 from rest_framework import status
 
 from apps.common.exceptions import BadGatewayError
@@ -31,6 +33,7 @@ def remote_invoice(status_: str = "SENT", payment_id: str = "") -> dict:
 @patch(f"{CLIENT}.send_invoice")
 @patch(f"{CLIENT}.create_invoice")
 class InvoiceSendTests(PayPalTestCase):
+    @override_settings(PAYPAL_INVOICE_DELIVERY="paypal")
     def test_invoice_with_an_email_is_emailed_by_paypal(self, create, send, get):
         create.return_value = {"id": "INV2-1", "raw": {}}
         get.return_value = remote_invoice()
@@ -42,6 +45,8 @@ class InvoiceSendTests(PayPalTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         send.assert_called_once_with(invoice_id="INV2-1", send_to_recipient=True)
+        self.assertEqual(response.data["paypal_invoice"]["delivered_via"], "paypal")
+        self.assertEqual(len(mail.outbox), 0)
         kwargs = create.call_args.kwargs
         self.assertEqual(kwargs["recipient_email"], "buyer@example.com")
         self.assertEqual(kwargs["recipient_name"], "Ayesha Khan")

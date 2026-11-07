@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,6 +17,13 @@ env = environ.Env(
     CORS_ALLOW_ALL_ORIGINS=(bool, False),
     FRONTEND_URL=(str, "http://localhost:5173"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.console.EmailBackend"),
+    EMAIL_HOST=(str, "localhost"),
+    EMAIL_PORT=(int, 25),
+    EMAIL_USE_TLS=(bool, False),
+    EMAIL_USE_SSL=(bool, False),
+    EMAIL_HOST_USER=(str, ""),
+    EMAIL_HOST_PASSWORD=(str, ""),
+    EMAIL_TIMEOUT=(int, 10),
     DEFAULT_FROM_EMAIL=(str, "Orbiz <noreply@orbiz.local>"),
     USE_LOCMEM_CACHE=(bool, False),
 )
@@ -190,6 +198,14 @@ SPECTACULAR_SETTINGS = {
 
 FRONTEND_URL = env("FRONTEND_URL")
 EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+# Short timeout so an unreachable SMTP server cannot hang a Celery worker.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 CHANNEL3_API_KEY = env("CHANNEL3_API_KEY", default="")
@@ -205,6 +221,17 @@ PAYPAL_API_BASE = env("PAYPAL_API_BASE", default="")
 PAYPAL_SUPPORTED_CURRENCIES = [
     code.upper() for code in env.list("PAYPAL_SUPPORTED_CURRENCIES", default=["USD"])
 ]
+# Who emails the buyer a payment request: "orbiz" sends it through our SMTP and creates the
+# PayPal invoice link-only; "paypal" lets PayPal email its own invoice (Sandbox never delivers it).
+PAYPAL_INVOICE_DELIVERY = env("PAYPAL_INVOICE_DELIVERY", default="orbiz").strip().lower()
+if PAYPAL_INVOICE_DELIVERY not in {"orbiz", "paypal"}:
+    raise ImproperlyConfigured("PAYPAL_INVOICE_DELIVERY must be 'orbiz' or 'paypal'.")
+# A checkout link older than this is replaced by a fresh one before it is emailed.
+PAYPAL_CHECKOUT_LINK_MAX_AGE_HOURS = env.int("PAYPAL_CHECKOUT_LINK_MAX_AGE_HOURS", default=24)
+# Emailing the same address the same payment link again is refused for this long.
+PAYMENT_EMAIL_COOLDOWN_SECONDS = env.int("PAYMENT_EMAIL_COOLDOWN_SECONDS", default=120)
+# Tell the store's members by email when a PayPal payment lands.
+NOTIFY_SELLER_ON_PAYMENT = env.bool("NOTIFY_SELLER_ON_PAYMENT", default=True)
 
 # Celery (namespace CELERY_*)
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")

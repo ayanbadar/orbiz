@@ -26,6 +26,18 @@ export function canRefund(order: Order): boolean {
   );
 }
 
+/** How long a queued payment email is worth polling for before the seller is told to check. */
+const EMAIL_POLL_WINDOW_MS = 2 * 60 * 1000;
+
+/** A payment email was queued moments ago and the worker has not reported back yet. */
+export function isPaymentEmailInFlight(order: Order | undefined): boolean {
+  const request = order?.paypal_payment_request;
+  if (!request || request.last_email_status !== "queued" || !request.last_emailed_at) {
+    return false;
+  }
+  return Date.now() - new Date(request.last_emailed_at).getTime() < EMAIL_POLL_WINDOW_MS;
+}
+
 export async function copyLink(url: string, label: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(url);

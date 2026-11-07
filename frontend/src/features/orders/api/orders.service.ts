@@ -1,6 +1,7 @@
 import type {
   FulfilmentStatus,
   Order,
+  OrderConfirmRequest,
   OrderCreateRequest,
   OrderListItem,
   OrderListParams,
@@ -47,8 +48,11 @@ export class OrderService {
     return response.data;
   }
 
-  static async confirm(id: number): Promise<Order> {
-    const response = await api.post<Order>(`${ROOT}/${id}/confirm/`, {});
+  static async confirm(
+    id: number,
+    body: OrderConfirmRequest = {},
+  ): Promise<Order> {
+    const response = await api.post<Order>(`${ROOT}/${id}/confirm/`, body);
     return response.data;
   }
 

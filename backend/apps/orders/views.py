@@ -6,11 +6,13 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.orders.models import Order, OrderEvent, OrderLine
 from apps.orders.serializers import (
+    OrderConfirmSerializer,
     OrderCreateSerializer,
     OrderListSerializer,
     OrderSerializer,
@@ -18,6 +20,7 @@ from apps.orders.serializers import (
     OrderUpdateSerializer,
 )
 from apps.orders.services import abandon_payment, cancel_order, confirm_order, mark_order_paid
+from apps.payments.services import notify_order_confirmed
 from apps.stores.mixins import StoreScopedMixin
 
 
@@ -206,13 +209,23 @@ class OrderConfirmView(OrderStoreMixin, APIView):
 
     @extend_schema(
         tags=["orders"],
-        summary="Confirm draft order (deduct stock)",
-        request=None,
+        summary="Confirm draft order (deduct stock), optionally emailing the customer",
+        request=OrderConfirmSerializer,
         responses={200: OrderSerializer},
     )
     def post(self, request, pk):
+        serializer = OrderConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        notify_customer = serializer.validated_data["notify_customer"]
         order = generics.get_object_or_404(self.get_queryset(), pk=pk)
+        # Refuse before confirming, so nothing is half done when there is nobody to email.
+        if notify_customer and not order.customer.email:
+            raise ValidationError(
+                {"notify_customer": "This customer has no email address on file."}
+            )
         order = confirm_order(order=order, user=request.user)
+        if notify_customer:
+            notify_order_confirmed(order=order, user=request.user)
         order = self.get_queryset().get(pk=order.pk)
         return Response(OrderSerializer(order).data)
 

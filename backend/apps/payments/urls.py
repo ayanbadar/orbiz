@@ -6,6 +6,7 @@ from apps.payments.views import (
     PaymentCheckoutDetailView,
     PaymentInvoiceCancelView,
     PaymentInvoiceCreateView,
+    PaymentLinkEmailView,
     PaymentRefundView,
     PayPalWebhookView,
 )
@@ -30,6 +31,11 @@ urlpatterns = [
         "orders/<int:order_id>/invoice/",
         PaymentInvoiceCreateView.as_view(),
         name="payment-invoice-create",
+    ),
+    path(
+        "orders/<int:order_id>/email-link/",
+        PaymentLinkEmailView.as_view(),
+        name="payment-link-email",
     ),
     path(
         "orders/<int:order_id>/invoice/cancel/",

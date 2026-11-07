@@ -112,13 +112,18 @@ class PaymentRefund(models.Model):
 class PaymentInvoice(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
-        SENT = "sent", "Sent"  # PayPal emailed the buyer
+        SENT = "sent", "Sent"  # the buyer was emailed (by PayPal or by Orbiz)
         SHARED = "shared", "Shared link"  # payable by link only, nothing emailed
         PAID = "paid", "Paid"
         PARTIALLY_REFUNDED = "partially_refunded", "Partially refunded"
         REFUNDED = "refunded", "Refunded"
         CANCELLED = "cancelled", "Cancelled"
         FAILED = "failed", "Failed"
+
+    class Delivery(models.TextChoices):
+        PAYPAL = "paypal", "PayPal email"
+        ORBIZ = "orbiz", "Orbiz email"
+        NONE = "none", "Link only"
 
     order = models.ForeignKey(
         Order,
@@ -135,6 +140,11 @@ class PaymentInvoice(models.Model):
         default=Status.DRAFT,
     )
     recipient_email = models.EmailField(blank=True, default="")
+    delivered_via = models.CharField(
+        max_length=8,
+        choices=Delivery.choices,
+        default=Delivery.NONE,
+    )
     recipient_view_url = models.URLField(max_length=2048, blank=True, default="")
     amount = models.DecimalField(
         max_digits=12,

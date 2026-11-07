@@ -132,6 +132,7 @@ class OrderEvent(models.Model):
         PAYMENT_REFUNDED = "payment_refunded", "Payment refunded"
         INVOICE_SENT = "invoice_sent", "Invoice sent"
         INVOICE_CANCELLED = "invoice_cancelled", "Invoice cancelled"
+        PAYMENT_LINK_EMAILED = "payment_link_emailed", "Payment link emailed"
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="events")
     event_type = models.CharField(max_length=32, choices=EventType.choices)

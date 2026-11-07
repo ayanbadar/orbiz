@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from collections.abc import Callable
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -17,6 +19,8 @@ from apps.common.exceptions import (
     ConflictError,
     NotFoundError,
 )
+from apps.notifications.models import EmailLog, EmailStatus
+from apps.notifications.services import queue_email
 from apps.orders.models import Order, OrderEvent
 from apps.orders.services import (
     MONEY_RECEIVED,
@@ -25,6 +29,7 @@ from apps.orders.services import (
     mark_order_payment_failed,
     mark_order_refunded,
 )
+from apps.payments import emails as payment_emails
 from apps.payments import paypal as paypal_client
 from apps.payments.models import (
     PaymentCheckout,
@@ -32,6 +37,7 @@ from apps.payments.models import (
     PaymentRefund,
     PayPalWebhookEvent,
 )
+from apps.stores.models import StoreMembership
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +113,10 @@ def _frontend_base() -> str:
 
 
 def _return_urls(*, order: Order) -> tuple[str, str]:
-    base = f"{_frontend_base()}/orders/{order.id}"
-    return f"{base}?paypal=return", f"{base}?paypal=cancel"
+    # A public page: the buyer who pays from an emailed link has no Orbiz login. It forwards
+    # a signed-in seller to the order (where the return triggers the capture fallback).
+    base = f"{_frontend_base()}/pay/return?order={order.id}"
+    return f"{base}&paypal=return", f"{base}&paypal=cancel"
 
 
 def _lock_order(*, order_id: int, store_id: int | None = None) -> Order:
@@ -235,6 +243,20 @@ def create_checkout(*, order_id: int, store, user) -> PaymentCheckout:
         cancel_url=cancel_url,
         custom_id=str(order.id),
         reference_id=order.number,
+        items=[
+            {
+                "name": line.product_name,
+                "quantity": line.quantity,
+                "unit_price": line.unit_price,
+                "sku": line.sku,
+            }
+            for line in order.lines.all()
+        ],
+        description=f"{store.name} - order {order.number}",
+        # Shown in the buyer's PayPal history and emails. PayPal refuses a repeated value per
+        # merchant, so each checkout gets its own suffix (a rebuilt dev database reuses numbers).
+        invoice_id=f"{order.number}-{secrets.token_hex(3).upper()}",
+        brand_name=store.name,
     )
 
     checkout = PaymentCheckout.objects.create(
@@ -286,10 +308,11 @@ def capture_checkout(*, order_id: int, store, user) -> tuple[Order, PaymentCheck
         if checkout is None:
             raise ConflictError("Create a PayPal checkout before capturing.")
         if checkout.status == PaymentCheckout.Status.CAPTURED:
-            order = mark_order_paid(
+            order = _mark_paid_and_notify(
                 order=order,
                 user=user,
                 message="Payment already captured via PayPal Sandbox.",
+                via="PayPal checkout",
             )
             return order, checkout
 
@@ -300,6 +323,13 @@ def capture_checkout(*, order_id: int, store, user) -> tuple[Order, PaymentCheck
     try:
         captured = _capture_at_paypal(paypal_order_id)
     except Exception as exc:
+        if (
+            isinstance(exc, BadGatewayError)
+            and exc.extra.get("paypal_issue") == paypal_client.ORDER_NOT_APPROVED
+        ):
+            # Not a failure: the buyer simply hasn't approved yet, so the checkout stays open
+            # and the order stays as it is. Capturing again after approval works.
+            raise ConflictError(exc.message, code="order_not_approved") from exc
         with transaction.atomic():
             order = _lock_order(order_id=order_id, store_id=store.id)
             checkout = PaymentCheckout.objects.select_for_update().get(pk=checkout_id)
@@ -339,13 +369,14 @@ def capture_checkout(*, order_id: int, store, user) -> tuple[Order, PaymentCheck
         checkout.save(
             update_fields=["status", "capture_id", "last_error", "updated_at"]
         )
-        order = mark_order_paid(
+        order = _mark_paid_and_notify(
             order=order,
             user=user,
             message=(
                 "Paid via PayPal Sandbox capture "
                 f"({checkout.capture_id or checkout.paypal_order_id})."
             ),
+            via="PayPal checkout",
         )
         return order, checkout
 
@@ -397,7 +428,7 @@ def _apply_refund_to_order(
 ) -> Order:
     fully = _refunded_total(order=order, capture_id=refund.capture_id) >= paid_amount
     origin = " (from the PayPal dashboard)" if refund.source == PaymentRefund.Source.PAYPAL else ""
-    return mark_order_refunded(
+    order = mark_order_refunded(
         order=order,
         user=user,
         fully=fully,
@@ -406,6 +437,21 @@ def _apply_refund_to_order(
             f"Order {'fully' if fully else 'partially'} refunded."
         ),
     )
+    _notify_buyer(
+        order=order,
+        user=user,
+        key=f"refund:{refund.pk}",
+        kind="refund_notice",
+        render=lambda store: payment_emails.render_refund_notice(
+            order=order,
+            store=store,
+            sandbox=paypal_client.is_sandbox_mode(),
+            amount=refund.amount,
+            currency=refund.currency,
+            fully=fully,
+        ),
+    )
+    return order
 
 
 def _fail_refund(*, refund_pk: int, error: str) -> None:
@@ -546,10 +592,13 @@ def send_invoice_for_order(
     """
     Create and send a PayPal invoice for the order total.
 
-    With a recipient email PayPal emails the buyer; without one the invoice is payable
-    by link only and nothing is emailed.
+    With a recipient email the buyer is emailed — by Orbiz (PAYPAL_INVOICE_DELIVERY=orbiz,
+    the PayPal invoice is then link-only so nobody is emailed twice) or by PayPal itself.
+    Without an email the invoice is payable by link only and nothing is emailed.
     """
     email = recipient_email.strip().lower()
+    orbiz_emails = bool(email) and settings.PAYPAL_INVOICE_DELIVERY == "orbiz"
+    paypal_emails = bool(email) and not orbiz_emails
 
     with transaction.atomic():
         order = _lock_order(order_id=order_id, store_id=store.id)
@@ -591,8 +640,10 @@ def send_invoice_for_order(
             request_id=str(invoice.request_id),
         )
         paypal_invoice_id = created["id"]
-        paypal_client.send_invoice(invoice_id=paypal_invoice_id, send_to_recipient=bool(email))
+        paypal_client.send_invoice(invoice_id=paypal_invoice_id, send_to_recipient=paypal_emails)
         remote = paypal_client.get_invoice(invoice_id=paypal_invoice_id)
+        if orbiz_emails and not paypal_client.invoice_payer_url(remote):
+            raise BadGatewayError("PayPal did not return an invoice link to email.")
     except Exception as exc:
         with transaction.atomic():
             invoice = PaymentInvoice.objects.select_for_update().get(pk=invoice.pk)
@@ -611,6 +662,13 @@ def send_invoice_for_order(
         invoice.status = (
             PaymentInvoice.Status.SENT if email else PaymentInvoice.Status.SHARED
         )
+        invoice.delivered_via = (
+            PaymentInvoice.Delivery.ORBIZ
+            if orbiz_emails
+            else PaymentInvoice.Delivery.PAYPAL
+            if paypal_emails
+            else PaymentInvoice.Delivery.NONE
+        )
         invoice.recipient_view_url = paypal_client.invoice_payer_url(remote)
         invoice.sent_at = timezone.now()
         invoice.last_error = ""
@@ -618,6 +676,7 @@ def send_invoice_for_order(
             update_fields=[
                 "paypal_invoice_id",
                 "status",
+                "delivered_via",
                 "recipient_view_url",
                 "sent_at",
                 "last_error",
@@ -629,12 +688,24 @@ def send_invoice_for_order(
             user=user,
             message="Payment set to pending for PayPal Sandbox invoice.",
         )
+        if orbiz_emails:
+            _queue_payment_email(
+                order=order,
+                store=store,
+                user=user,
+                recipient=email,
+                link=invoice.recipient_view_url,
+                key=f"invoice:{invoice.invoice_number}",
+                invoice_number=invoice.invoice_number,
+                issued_on=timezone.localdate(invoice.created_at),
+            )
         _record_order_event(
             order=order,
             event_type=OrderEvent.EventType.INVOICE_SENT,
             user=user,
             message=(
-                f"PayPal Sandbox invoice {invoice.invoice_number} emailed to {email}."
+                f"PayPal Sandbox invoice {invoice.invoice_number} emailed to {email}"
+                f"{' by Orbiz' if orbiz_emails else ''}."
                 if email
                 else (
                     f"PayPal Sandbox invoice {invoice.invoice_number} created as a "
@@ -651,6 +722,340 @@ def cancel_invoice_for_order(*, order_id: int, store, user) -> PaymentInvoice:
     if _cancel_open_invoices(order=order, user=user) == 0:
         raise ConflictError("There is no open PayPal invoice to cancel.")
     return latest_invoice(order=order)
+
+
+# --- Payment-link emails ------------------------------------------------------------
+
+
+def _payment_email_reference(*, order: Order, key: str) -> str:
+    return f"order:{order.id}:{key}"
+
+
+def _queue_notice(
+    *,
+    order: Order,
+    recipients: list[str],
+    key: str,
+    kind: str,
+    render,
+    from_email: str,
+    reply_to: str = "",
+) -> None:
+    """
+    Queue a notice email once per `key` on the order.
+
+    Best effort: this runs inside payment, refund and confirm processing, so a missing address
+    or any failure here is logged and never rolls the business action back.
+    """
+    if not recipients:
+        logger.info("No recipient for the %s notice on order %s; skipped.", kind, order.id)
+        return
+    reference = _payment_email_reference(order=order, key=key)
+    try:
+        with transaction.atomic():
+            if EmailLog.objects.filter(reference=reference).exists():
+                return
+            rendered = render(order.store)
+            queue_email(
+                to=recipients,
+                subject=rendered.subject,
+                body=rendered.text,
+                html_body=rendered.html,
+                from_email=from_email,
+                reply_to=reply_to,
+                reference=reference,
+                kind=kind,
+            )
+    except Exception:
+        logger.exception("Could not queue the %s email for order %s.", kind, order.id)
+
+
+def _notify_buyer(*, order: Order, user, key: str, kind: str, render) -> None:
+    """Email the order's customer a notice (receipt, refund, confirmation), once per `key`."""
+    customer_email = (order.customer.email or "").strip()
+    _queue_notice(
+        order=order,
+        recipients=[customer_email] if customer_email else [],
+        key=key,
+        kind=kind,
+        render=render,
+        from_email=payment_emails.sender_for(order.store),
+        reply_to=getattr(user, "email", "") or "",
+    )
+
+
+def _notify_sellers(*, order: Order, via: str) -> None:
+    """Tell the store's members a payment landed, once per order."""
+    if not settings.NOTIFY_SELLER_ON_PAYMENT:
+        return
+    emails = {
+        membership.user.email.strip().lower()
+        for membership in StoreMembership.objects.filter(store_id=order.store_id).select_related(
+            "user"
+        )
+        if membership.user.email
+    }
+    _queue_notice(
+        order=order,
+        recipients=sorted(emails),
+        key="paid:seller",
+        kind="seller_payment_notice",
+        render=lambda store: payment_emails.render_seller_payment_notice(
+            order=order,
+            store=store,
+            sandbox=paypal_client.is_sandbox_mode(),
+            via=via,
+            order_url=f"{_frontend_base()}/orders/{order.id}",
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+    )
+
+
+def _mark_paid_and_notify(*, order: Order, user, message: str, via: str = "PayPal") -> Order:
+    """mark_order_paid, plus a buyer receipt and a seller notice the first time it is paid."""
+    was_paid = order.payment_status in MONEY_RECEIVED
+    order = mark_order_paid(order=order, user=user, message=message)
+    if not was_paid:
+        _notify_buyer(
+            order=order,
+            user=user,
+            key="paid",
+            kind="payment_receipt",
+            render=lambda store: payment_emails.render_payment_receipt(
+                order=order, store=store, sandbox=paypal_client.is_sandbox_mode()
+            ),
+        )
+        _notify_sellers(order=order, via=via)
+    return order
+
+
+def notify_order_confirmed(*, order: Order, user) -> None:
+    """The opt-in "order confirmed" email to the customer (the seller ticks it on confirm)."""
+    _notify_buyer(
+        order=order,
+        user=user,
+        key="confirmed",
+        kind="order_confirmation",
+        render=lambda store: payment_emails.render_order_confirmation(
+            order=order, store=store, sandbox=paypal_client.is_sandbox_mode()
+        ),
+    )
+
+
+def _queue_payment_email(
+    *,
+    order: Order,
+    store,
+    user,
+    recipient: str,
+    link: str,
+    key: str,
+    kind: str = payment_emails.REQUEST,
+    invoice_number: str = "",
+    issued_on=None,
+) -> EmailLog:
+    """Queue the buyer's payment email; it is sent by the Celery worker after commit."""
+    rendered = payment_emails.render_payment_request(
+        order=order,
+        store=store,
+        link=link,
+        # `key` is "invoice:<number>" or "checkout:<paypal order id>".
+        link_kind=(
+            payment_emails.INVOICE_LINK
+            if key.startswith("invoice:")
+            else payment_emails.CHECKOUT_LINK
+        ),
+        kind=kind,
+        sandbox=paypal_client.is_sandbox_mode(),
+        invoice_number=invoice_number,
+        issued_on=issued_on,
+    )
+    return queue_email(
+        to=recipient,
+        subject=rendered.subject,
+        body=rendered.text,
+        html_body=rendered.html,
+        from_email=payment_emails.sender_for(store),
+        # Replies reach the seller who asked for the payment, not the shared sender address.
+        reply_to=getattr(user, "email", "") or "",
+        reference=_payment_email_reference(order=order, key=key),
+        kind="payment_reminder" if kind == payment_emails.REMINDER else "payment_request",
+    )[0]
+
+
+def _open_request_invoice(*, order: Order) -> PaymentInvoice | None:
+    return (
+        PaymentInvoice.objects.filter(
+            order=order,
+            status__in={PaymentInvoice.Status.SENT, PaymentInvoice.Status.SHARED},
+        )
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+
+def _open_request_checkout(*, order: Order) -> PaymentCheckout | None:
+    return (
+        PaymentCheckout.objects.filter(order=order, status__in=ACTIVE_CHECKOUT_STATUSES)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+
+def _current_payment_request(*, order: Order) -> tuple[str, str, str]:
+    """(link, reference key, label) of the one open PayPal payment request."""
+    invoice = _open_request_invoice(order=order)
+    if invoice is not None and invoice.recipient_view_url:
+        return (
+            invoice.recipient_view_url,
+            f"invoice:{invoice.invoice_number}",
+            f"invoice {invoice.invoice_number}",
+        )
+    checkout = _open_request_checkout(order=order)
+    if checkout is not None and checkout.approve_url:
+        return checkout.approve_url, f"checkout:{checkout.paypal_order_id}", "checkout link"
+    raise ConflictError("Create a PayPal checkout or invoice before emailing a payment link.")
+
+
+def payment_request_summary(*, order: Order) -> dict:
+    """What the seller's UI shows for the order's single open PayPal payment request."""
+    summary = {
+        "kind": "none",
+        "status": "",
+        "url": "",
+        "recipient_email": "",
+        "delivered_via": "",
+        "last_emailed_at": None,
+        "last_email_status": "",
+        "last_email_error": "",
+        "can_email": False,
+        "delivery_mode": settings.PAYPAL_INVOICE_DELIVERY,
+    }
+    if order.payment_status in MONEY_RECEIVED:
+        return summary
+
+    invoice = _open_request_invoice(order=order)
+    checkout = None if invoice is not None else _open_request_checkout(order=order)
+    if invoice is not None and invoice.recipient_view_url:
+        summary.update(
+            kind="invoice",
+            status=invoice.status,
+            url=invoice.recipient_view_url,
+            recipient_email=invoice.recipient_email,
+            delivered_via=invoice.delivered_via,
+        )
+        key = f"invoice:{invoice.invoice_number}"
+    elif checkout is not None and checkout.approve_url:
+        summary.update(kind="checkout", status=checkout.status, url=checkout.approve_url)
+        key = f"checkout:{checkout.paypal_order_id}"
+    else:
+        return summary
+
+    summary["can_email"] = True
+    last = (
+        EmailLog.objects.filter(reference=_payment_email_reference(order=order, key=key))
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if last is not None:
+        summary.update(
+            recipient_email=summary["recipient_email"] or last.recipient,
+            last_emailed_at=last.created_at,
+            last_email_status=last.status,
+            last_email_error=last.error_message,
+        )
+    return summary
+
+
+def email_payment_link(
+    *,
+    order_id: int,
+    store,
+    user,
+    recipient_email: str = "",
+    kind: str = payment_emails.REQUEST,
+) -> EmailLog:
+    """
+    Email the order's current open PayPal payment link (invoice or checkout) to the buyer.
+
+    Nothing is sent for a paid order, without an open request, or twice to the same
+    address within PAYMENT_EMAIL_COOLDOWN_SECONDS. A checkout link older than
+    PAYPAL_CHECKOUT_LINK_MAX_AGE_HOURS is replaced by a fresh one first.
+    """
+    order = Order.objects.filter(pk=order_id, store=store).first()
+    if order is None:
+        raise NotFoundError("Order not found.")
+
+    # Stale checkout links are replaced before locking: create_checkout talks to PayPal.
+    if _open_request_invoice(order=order) is None:
+        checkout = _open_request_checkout(order=order)
+        max_age = timedelta(hours=settings.PAYPAL_CHECKOUT_LINK_MAX_AGE_HOURS)
+        if checkout is not None and timezone.now() - checkout.created_at > max_age:
+            create_checkout(order_id=order_id, store=store, user=user)
+
+    with transaction.atomic():
+        order = _lock_order(order_id=order_id, store_id=store.id)
+        if order.payment_status in MONEY_RECEIVED:
+            raise ConflictError("Order is already paid.")
+
+        email = (recipient_email or order.customer.email or "").strip().lower()
+        if not email:
+            raise ApplicationError(
+                "Enter an email address — this customer has none on file.",
+                code="recipient_required",
+            )
+
+        link, key, label = _current_payment_request(order=order)
+        reference = _payment_email_reference(order=order, key=key)
+        cooldown = timedelta(seconds=settings.PAYMENT_EMAIL_COOLDOWN_SECONDS)
+        recent = (
+            EmailLog.objects.filter(
+                reference=reference,
+                recipient=email,
+                created_at__gte=timezone.now() - cooldown,
+            )
+            .exclude(status=EmailStatus.FAILED)
+            .order_by("-created_at")
+            .first()
+        )
+        if recent is not None:
+            wait = max(1, int((recent.created_at + cooldown - timezone.now()).total_seconds()))
+            raise ConflictError(
+                f"A payment link was just emailed to {email}. Try again in {wait} seconds.",
+                code="email_cooldown",
+                extra={"retry_after_seconds": wait},
+            )
+
+        invoice = _open_request_invoice(order=order)
+        log = _queue_payment_email(
+            order=order,
+            store=store,
+            user=user,
+            recipient=email,
+            link=link,
+            key=key,
+            kind=kind,
+            invoice_number=invoice.invoice_number if invoice else "",
+            issued_on=timezone.localdate(invoice.created_at) if invoice else None,
+        )
+        if invoice is not None:
+            # Emailing a link-only invoice turns it into one the buyer has been sent.
+            invoice.recipient_email = email
+            if invoice.status == PaymentInvoice.Status.SHARED:
+                invoice.status = PaymentInvoice.Status.SENT
+            if invoice.delivered_via == PaymentInvoice.Delivery.NONE:
+                invoice.delivered_via = PaymentInvoice.Delivery.ORBIZ
+            invoice.save(
+                update_fields=["recipient_email", "status", "delivered_via", "updated_at"]
+            )
+        noun = "reminder" if kind == payment_emails.REMINDER else "request"
+        _record_order_event(
+            order=order,
+            event_type=OrderEvent.EventType.PAYMENT_LINK_EMAILED,
+            user=user,
+            message=f"Payment {noun} emailed to {email} ({label}).",
+        )
+    return log
 
 
 # --- Webhooks -----------------------------------------------------------------------
@@ -754,7 +1159,7 @@ def _handle_capture_completed(*, order: Order | None, resource: dict, event_type
         return
     order = _lock_order(order_id=order.id)
     _mark_checkout_captured_from_webhook(order=order, resource=resource)
-    mark_order_paid(
+    _mark_paid_and_notify(
         order=order,
         user=None,
         message=f"Paid via PayPal Sandbox webhook ({event_type}).",
@@ -915,10 +1320,11 @@ def _handle_invoice_event(*, remote: dict | None) -> None:
         invoice.save(
             update_fields=["status", "capture_id", "paid_at", "last_error", "updated_at"]
         )
-        mark_order_paid(
+        _mark_paid_and_notify(
             order=order,
             user=None,
             message=f"Paid via PayPal Sandbox invoice {invoice.invoice_number}.",
+            via=f"PayPal invoice {invoice.invoice_number}",
         )
         return
 

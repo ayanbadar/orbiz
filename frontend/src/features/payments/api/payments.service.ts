@@ -1,5 +1,6 @@
 import type { Order } from "@/features/orders/types";
 import type {
+  EmailLinkRequest,
   InvoiceRequest,
   PaymentCheckout,
   PaymentCheckoutDetailResponse,
@@ -52,6 +53,17 @@ export class PaymentService {
   ): Promise<Order> {
     const response = await api.post<Order>(
       `${ROOT}/orders/${orderId}/invoice/`,
+      body,
+    );
+    return response.data;
+  }
+
+  static async emailLink(
+    orderId: number,
+    body: EmailLinkRequest,
+  ): Promise<Order> {
+    const response = await api.post<Order>(
+      `${ROOT}/orders/${orderId}/email-link/`,
       body,
     );
     return response.data;

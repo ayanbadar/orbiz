@@ -10,6 +10,7 @@ from apps.payments.serializers import (
     PaymentCheckoutSummarySerializer,
     PaymentInvoiceSummarySerializer,
     PaymentRefundSerializer,
+    PaymentRequestSummarySerializer,
 )
 
 
@@ -54,6 +55,7 @@ class OrderSerializer(serializers.ModelSerializer):
     events = OrderEventSerializer(many=True, read_only=True)
     paypal_checkout = serializers.SerializerMethodField()
     paypal_invoice = serializers.SerializerMethodField()
+    paypal_payment_request = serializers.SerializerMethodField()
     paypal_refunds = serializers.SerializerMethodField()
     paypal_refundable_amount = serializers.SerializerMethodField()
     paypal_currency_supported = serializers.SerializerMethodField()
@@ -81,6 +83,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "events",
             "paypal_checkout",
             "paypal_invoice",
+            "paypal_payment_request",
             "paypal_refunds",
             "paypal_refundable_amount",
             "paypal_currency_supported",
@@ -107,6 +110,12 @@ class OrderSerializer(serializers.ModelSerializer):
         if invoice is None:
             return None
         return PaymentInvoiceSummarySerializer(invoice).data
+
+    @extend_schema_field(PaymentRequestSummarySerializer)
+    def get_paypal_payment_request(self, order: Order):
+        from apps.payments.services import payment_request_summary
+
+        return PaymentRequestSummarySerializer(payment_request_summary(order=order)).data
 
     @extend_schema_field(PaymentRefundSerializer(many=True))
     def get_paypal_refunds(self, order: Order):
@@ -222,6 +231,14 @@ class OrderUpdateSerializer(serializers.Serializer):
             if hasattr(exc, "message_dict"):
                 raise serializers.ValidationError(exc.message_dict) from exc
             raise serializers.ValidationError(list(exc.messages)) from exc
+
+
+class OrderConfirmSerializer(serializers.Serializer):
+    notify_customer = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Email the customer an order confirmation. Needs an email on file.",
+    )
 
 
 class OrderTransitionSerializer(serializers.Serializer):

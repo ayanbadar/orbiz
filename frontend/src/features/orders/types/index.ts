@@ -3,6 +3,7 @@ import type {
   PaymentCheckout,
   PaymentInvoice,
   PaymentRefund,
+  PaymentRequestSummary,
 } from "@/features/payments/types";
 
 export type FulfilmentStatus =
@@ -61,6 +62,7 @@ export type Order = {
   events: OrderEvent[];
   paypal_checkout?: PaymentCheckout | null;
   paypal_invoice?: PaymentInvoice | null;
+  paypal_payment_request?: PaymentRequestSummary;
   paypal_refunds?: PaymentRefund[];
   paypal_refundable_amount?: string;
   paypal_currency_supported?: boolean;
@@ -120,6 +122,11 @@ export type OrderCreateRequest = {
   internal_notes?: string;
   source_message?: string;
   lines: OrderLineInput[];
+};
+
+export type OrderConfirmRequest = {
+  /** Email the customer an order confirmation (needs an email on file). */
+  notify_customer?: boolean;
 };
 
 export type OrderUpdateRequest = {

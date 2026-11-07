@@ -95,9 +95,14 @@ def _auth_headers() -> dict[str, str]:
 
 
 ORDER_ALREADY_CAPTURED = "ORDER_ALREADY_CAPTURED"
+ORDER_NOT_APPROVED = "ORDER_NOT_APPROVED"
 
 # PayPal `details[].issue` codes → seller-readable messages.
 _ISSUE_MESSAGES: dict[str, str] = {
+    ORDER_NOT_APPROVED: (
+        "The buyer hasn't approved this payment on PayPal yet. Send them the link and "
+        "capture once they have approved it."
+    ),
     "REFUND_AMOUNT_EXCEEDED": "That is more than is left to refund on this payment.",
     "CAPTURE_FULLY_REFUNDED": "This payment has already been fully refunded.",
     "REFUND_TIME_LIMIT_EXCEEDED": "PayPal only allows refunds within 180 days of the payment.",
@@ -185,6 +190,37 @@ def _approve_url(order_payload: dict[str, Any]) -> str:
     return ""
 
 
+def _checkout_items(
+    *, amount: Decimal, currency: str, items: list[dict[str, Any]] | None
+) -> list[dict[str, Any]] | None:
+    """
+    PayPal `items[]` for the buyer's review page and receipt, or None when they can't be
+    sent safely: PayPal needs every price > 0 and `item_total` to equal the order amount.
+    """
+    if not items or len(items) > 100:
+        return None
+    code = currency.upper()
+    rows: list[dict[str, Any]] = []
+    item_total = Decimal("0.00")
+    for item in items:
+        unit_price = Decimal(item["unit_price"]).quantize(Decimal("0.01"))
+        quantity = int(item["quantity"])
+        if unit_price <= 0 or quantity < 1:
+            return None
+        item_total += unit_price * quantity
+        row: dict[str, Any] = {
+            "name": str(item["name"])[:127],
+            "quantity": str(quantity),
+            "unit_amount": {"currency_code": code, "value": f"{unit_price}"},
+        }
+        if item.get("sku"):
+            row["sku"] = str(item["sku"])[:127]
+        rows.append(row)
+    if item_total.quantize(Decimal("0.01")) != amount.quantize(Decimal("0.01")):
+        return None
+    return rows
+
+
 def create_order(
     *,
     amount: Decimal,
@@ -193,30 +229,46 @@ def create_order(
     cancel_url: str,
     custom_id: str,
     reference_id: str,
+    items: list[dict[str, Any]] | None = None,
+    description: str = "",
+    invoice_id: str = "",
+    brand_name: str = "",
 ) -> dict[str, Any]:
     """
     Create a PayPal order with intent CAPTURE.
 
-    Returns dict with keys: id, status, approve_url, raw.
+    `items` ({name, quantity, unit_price, sku}), `description`, `invoice_id` (shown in the
+    buyer's PayPal history and emails; PayPal rejects a repeat per merchant) and
+    `brand_name` make the buyer's payment page and receipt say what is being bought and
+    from whom. Returns dict with keys: id, status, approve_url, raw.
     """
+    code = currency.upper()
+    value = f"{amount.quantize(Decimal('0.01'))}"
+    unit: dict[str, Any] = {
+        "reference_id": reference_id[:127],
+        "custom_id": custom_id[:127],
+        "amount": {"currency_code": code, "value": value},
+    }
+    paypal_items = _checkout_items(amount=amount, currency=code, items=items)
+    if paypal_items is not None:
+        unit["items"] = paypal_items
+        unit["amount"]["breakdown"] = {"item_total": {"currency_code": code, "value": value}}
+    if description:
+        unit["description"] = description[:127]
+    if invoice_id:
+        unit["invoice_id"] = invoice_id[:127]
+    context: dict[str, Any] = {
+        "return_url": return_url,
+        "cancel_url": cancel_url,
+        "user_action": "PAY_NOW",
+        "shipping_preference": "NO_SHIPPING",
+    }
+    if brand_name:
+        context["brand_name"] = " ".join(brand_name.split())[:127]
     body = {
         "intent": "CAPTURE",
-        "purchase_units": [
-            {
-                "reference_id": reference_id[:127],
-                "custom_id": custom_id[:127],
-                "amount": {
-                    "currency_code": currency.upper(),
-                    "value": f"{amount.quantize(Decimal('0.01'))}",
-                },
-            }
-        ],
-        "application_context": {
-            "return_url": return_url,
-            "cancel_url": cancel_url,
-            "user_action": "PAY_NOW",
-            "shipping_preference": "NO_SHIPPING",
-        },
+        "purchase_units": [unit],
+        "application_context": context,
     }
     raw = _request("POST", "/v2/checkout/orders", json_body=body)
     order_id = raw.get("id") or ""

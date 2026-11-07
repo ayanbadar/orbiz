@@ -1,0 +1,17 @@
+{% autoescape off %}{% if sandbox %}*** PAYPAL SANDBOX TEST - no real money moved ***
+
+{% endif %}{{ greeting }}
+
+{{ intro }}
+{% if lines %}
+{% for line in lines %}  {{ line.quantity }} x {{ line.name }} - {{ line.line_total }}
+{% endfor %}{% endif %}
+{{ amount_label }}: {{ amount }}
+{% if note %}
+{{ note }}
+{% endif %}{% if action_url %}
+{{ action_label }}: {{ action_url }}
+{% endif %}
+Order {{ order_number }} from {{ store_name }}.
+{{ footer }}
+{% endautoescape %}

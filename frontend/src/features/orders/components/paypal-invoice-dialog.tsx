@@ -46,13 +46,14 @@ function InvoiceForm({ order, onDone }: FormProps) {
     defaultValues: { recipient_email: order.customer.email ?? "" },
   });
   const email = useWatch({ control: form.control, name: "recipient_email" }).trim();
+  const orbizDelivers = (order.paypal_payment_request?.delivery_mode ?? "orbiz") === "orbiz";
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       await sendInvoice.mutateAsync({ recipient_email: values.recipient_email });
       toast.success(
         values.recipient_email
-          ? `PayPal Sandbox invoice sent to ${values.recipient_email}.`
+          ? `Payment request ${orbizDelivers ? "queued for" : "sent to"} ${values.recipient_email}.`
           : "PayPal Sandbox invoice link created.",
       );
       onDone();
@@ -67,7 +68,7 @@ function InvoiceForm({ order, onDone }: FormProps) {
     <form onSubmit={onSubmit} className="space-y-4">
       <FormField
         id="invoice-email"
-        label="Send invoice to"
+        label="Send payment request to"
         error={form.formState.errors.recipient_email?.message}
       >
         <Input
@@ -79,12 +80,11 @@ function InvoiceForm({ order, onDone }: FormProps) {
         />
       </FormField>
       <p className="text-sm text-muted-foreground">
-        {email
-          ? "PayPal emails the buyer an invoice they can pay on PayPal."
-          : "No email: PayPal creates a payable link and nothing is emailed. You can copy and share it."}{" "}
-        In Sandbox, PayPal never sends real email — use a Sandbox buyer email
-        (sb-…@personal.example.com). The email may not show in PayPal&apos;s
-        Sandbox Notifications; the invoice link always works.
+        {!email
+          ? "No email: PayPal creates a payable link and nothing is emailed. You can email or copy it later."
+          : orbizDelivers
+            ? "Orbiz emails the buyer a button that opens a PayPal invoice. They pay on PayPal; no Orbiz account is needed."
+            : "PayPal emails the buyer an invoice they can pay on PayPal. In Sandbox, PayPal never delivers real email — use a Sandbox buyer email (sb-…@personal.example.com); the invoice link always works."}
       </p>
       <div className="flex justify-end gap-2">
         <DialogClose asChild>
@@ -100,7 +100,7 @@ function InvoiceForm({ order, onDone }: FormProps) {
           {sendInvoice.isPending
             ? "Sending…"
             : email
-              ? "Send invoice"
+              ? "Send request"
               : "Create invoice link"}
         </Button>
       </div>
@@ -119,10 +119,11 @@ export function PaypalInvoiceDialog({ order, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Send PayPal Sandbox invoice</DialogTitle>
+          <DialogTitle>Request payment</DialogTitle>
           <DialogDescription>
-            Invoices {order.currency} {order.total} for {order.number}. Starting
-            an invoice cancels any open checkout link for this order.
+            Invoices {order.currency} {order.total} for {order.number} through
+            PayPal Sandbox. Starting a request cancels any open pay-now link for
+            this order.
           </DialogDescription>
         </DialogHeader>
         <InvoiceForm order={order} onDone={() => onOpenChange(false)} />

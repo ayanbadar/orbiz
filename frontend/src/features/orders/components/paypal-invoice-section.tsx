@@ -5,11 +5,18 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
 import { ON_INK_OUTLINE_BUTTON } from "@/features/orders/components/paypal-card-styles";
+import { PaypalEmailStatus } from "@/features/orders/components/paypal-email-status";
 import { PaypalInvoiceDialog } from "@/features/orders/components/paypal-invoice-dialog";
 import type { Order } from "@/features/orders/types";
-import { canRequestPayment, copyLink } from "@/features/orders/utils/paypal-order";
+import {
+  canRequestPayment,
+  copyLink,
+} from "@/features/orders/utils/paypal-order";
 import { useCancelPaypalInvoice } from "@/features/payments/api/payments.api";
-import type { PaymentInvoiceStatus } from "@/features/payments/types";
+import type {
+  EmailLinkKind,
+  PaymentInvoiceStatus,
+} from "@/features/payments/types";
 
 const STATUS_LABELS: Record<PaymentInvoiceStatus, string> = {
   draft: "Draft",
@@ -29,22 +36,33 @@ type Props = {
   confirm: (options: ConfirmDialogOptions) => Promise<boolean>;
   /** PayPal credentials are set and the order currency is accepted. */
   enabled: boolean;
+  onEmail: (kind: EmailLinkKind) => void;
 };
 
-export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
+/** The primary way to ask a buyer to pay: a PayPal invoice, emailed from Orbiz or by PayPal. */
+export function PaypalInvoiceSection({
+  order,
+  confirm,
+  enabled,
+  onEmail,
+}: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const cancelInvoice = useCancelPaypalInvoice(order.id);
   const invoice = order.paypal_invoice ?? null;
+  const request = order.paypal_payment_request;
   const isOpen = invoice ? OPEN_STATUSES.includes(invoice.status) : false;
   const payUrl = invoice?.recipient_view_url ?? "";
+  const canEmail = isOpen && request?.kind === "invoice" && request.can_email;
+  const emailedBefore = Boolean(request?.last_email_status);
+  const orbizDelivers = (request?.delivery_mode ?? "orbiz") === "orbiz";
 
   const onCancel = async () => {
     if (!invoice) return;
     const ok = await confirm({
-      title: "Cancel this PayPal invoice?",
+      title: "Cancel this payment request?",
       description: `Invoice ${invoice.invoice_number} will no longer be payable. The order stays as it is.`,
-      confirmLabel: "Cancel invoice",
-      cancelLabel: "Keep invoice",
+      confirmLabel: "Cancel request",
+      cancelLabel: "Keep request",
       variant: "destructive",
     });
     if (!ok) return;
@@ -57,13 +75,13 @@ export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
   };
 
   return (
-    <div className="space-y-3 border-t border-background/15 pt-4">
-      <p className="text-sm font-semibold text-background">PayPal invoice</p>
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-background">Request payment</p>
 
       {invoice ? (
         <div className="space-y-1 text-sm text-background/80">
           <p>
-            {invoice.invoice_number} ·{" "}
+            Invoice {invoice.invoice_number} ·{" "}
             <span className="font-semibold text-primary">
               {STATUS_LABELS[invoice.status]}
             </span>
@@ -71,16 +89,18 @@ export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
           <p className="tabular-nums">
             {invoice.currency} {invoice.amount}
           </p>
-          {invoice.status === "sent" ? (
+          {isOpen && invoice.delivered_via === "paypal" ? (
             <p>
-              Sent by PayPal to {invoice.recipient_email}. Sandbox never
-              delivers real email and its Notifications page can lag — use
-              Open invoice to pay as the buyer.
+              Sent by PayPal to {invoice.recipient_email}.
+              {order.paypal_sandbox
+                ? " Sandbox never delivers real email — use Open invoice to pay as the buyer."
+                : ""}
             </p>
           ) : null}
-          {invoice.status === "shared" ? (
-            <p>No email was sent — copy the link and share it with the buyer.</p>
+          {isOpen && invoice.delivered_via === "none" ? (
+            <p>No email sent yet — email the link or copy it to share.</p>
           ) : null}
+          <PaypalEmailStatus request={request} />
           {invoice.last_error ? (
             <p className="text-sm text-destructive" role="alert">
               {invoice.last_error}
@@ -89,8 +109,9 @@ export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
         </div>
       ) : (
         <p className="text-sm text-background/70">
-          Send the buyer a PayPal invoice instead of sharing a checkout link
-          yourself.
+          {orbizDelivers
+            ? "Email the buyer a PayPal invoice link. They pay on PayPal and Orbiz marks the order paid."
+            : "PayPal emails the buyer an invoice. They pay on PayPal and Orbiz marks the order paid."}
         </p>
       )}
 
@@ -102,7 +123,29 @@ export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
             disabled={!enabled}
             onClick={() => setDialogOpen(true)}
           >
-            {invoice && isOpen ? "Send new invoice" : "Send PayPal invoice"}
+            {invoice && isOpen ? "Send new request" : "Request payment"}
+          </Button>
+        ) : null}
+
+        {canEmail ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={ON_INK_OUTLINE_BUTTON}
+            onClick={() => onEmail("request")}
+          >
+            {emailedBefore ? "Resend email" : "Email link"}
+          </Button>
+        ) : null}
+
+        {canEmail && request?.last_email_status === "sent" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={ON_INK_OUTLINE_BUTTON}
+            onClick={() => onEmail("reminder")}
+          >
+            Send reminder
           </Button>
         ) : null}
 
@@ -141,7 +184,7 @@ export function PaypalInvoiceSection({ order, confirm, enabled }: Props) {
               void onCancel();
             }}
           >
-            {cancelInvoice.isPending ? "Cancelling…" : "Cancel invoice"}
+            {cancelInvoice.isPending ? "Cancelling…" : "Cancel request"}
           </Button>
         ) : null}
       </div>
