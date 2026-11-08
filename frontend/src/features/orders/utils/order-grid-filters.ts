@@ -1,9 +1,6 @@
 import type { FilterModel } from "ag-grid-community";
 
-import type {
-  FulfilmentStatus,
-  PaymentStatus,
-} from "@/features/orders/types";
+import type { FulfilmentStatus, PaymentStatus } from "@/features/orders/types";
 import {
   getFulfilmentLabel,
   getPaymentLabel,
@@ -59,10 +56,8 @@ export function orderFiltersToFilterModel(
     );
   }
 
-  const totalMin =
-    filters.total_min != null ? Number(filters.total_min) : null;
-  const totalMax =
-    filters.total_max != null ? Number(filters.total_max) : null;
+  const totalMin = filters.total_min != null ? Number(filters.total_min) : null;
+  const totalMax = filters.total_max != null ? Number(filters.total_max) : null;
   const totalModel = numberRangeModel(
     totalMin != null && !Number.isNaN(totalMin) ? totalMin : null,
     totalMax != null && !Number.isNaN(totalMax) ? totalMax : null,

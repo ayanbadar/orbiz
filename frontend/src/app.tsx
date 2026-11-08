@@ -2,16 +2,22 @@ import { Route, Routes } from "react-router-dom";
 
 import { ROUTES } from "@/constants/routes";
 import { AccountPage } from "@/features/auth/components/account-page";
-import { AppShell } from "@/features/auth/components/app-shell";
+import { AdminUsersPage } from "@/features/auth/components/admin-users-page";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
 import { ResetPasswordPage } from "@/features/auth/components/reset-password-page";
 import {
   GuestOnly,
   HomeRedirect,
-  RequireAuth,
+  ProtectedLayout,
+  RequirePermission,
+  RequirePlatformAdmin,
+  RequireStoreAdmin,
+  StoreGate,
 } from "@/features/auth/components/route-guards";
 import { SignInPage } from "@/features/auth/components/sign-in-page";
 import { SignUpPage } from "@/features/auth/components/sign-up-page";
+import { BillingPage } from "@/features/billing/components/billing-page";
+import { AcceptInvitePage } from "@/features/invitations/components/accept-invite-page";
 import { DemoPage } from "@/features/demo/components/demo-page";
 import { OrderDetailPage } from "@/features/orders/components/order-detail-page";
 import { OrderFormPage } from "@/features/orders/components/order-form-page";
@@ -19,8 +25,17 @@ import { OrdersPage } from "@/features/orders/components/orders-page";
 import { ProductDetailPage } from "@/features/products/components/product-detail-page";
 import { ProductFormPage } from "@/features/products/components/product-form-page";
 import { ProductsPage } from "@/features/products/components/products-page";
+import { AdminStoresPage } from "@/features/stores/components/admin-stores-page";
 import { StoreOnboardingPage } from "@/features/stores/components/store-onboarding-page";
+import { RolesPage } from "@/features/team/components/roles-page";
+import { TeamUsersPage } from "@/features/team/components/team-users-page";
 
+/**
+ * Route tree. Layers, outermost first:
+ *   ProtectedLayout  – must be signed in, renders the app shell
+ *   StoreGate        – store must be usable (not suspended / unpaid)
+ *   Require*         – role permission checks (the API enforces them too)
+ */
 export function App() {
   return (
     <Routes>
@@ -50,116 +65,67 @@ export function App() {
         }
       />
       <Route path={ROUTES.resetPassword()} element={<ResetPasswordPage />} />
-      <Route
-        path={ROUTES.account()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <AccountPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.stores.onboarding()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <StoreOnboardingPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.orders.root()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <OrdersPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.orders.new()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <OrderFormPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.orders.edit(":id")}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <OrderFormPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.orders.detail(":id")}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <OrderDetailPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.products.root()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <ProductsPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.products.new()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <ProductFormPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.products.edit(":id")}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <ProductFormPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.products.detail(":id")}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <ProductDetailPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path={ROUTES.demo.root()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <DemoPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
+      <Route path={ROUTES.acceptInvite()} element={<AcceptInvitePage />} />
+
+      <Route element={<ProtectedLayout />}>
+        <Route path={ROUTES.account()} element={<AccountPage />} />
+
+        {/* Setup and billing stay reachable while the store is unpaid. */}
+        <Route element={<StoreGate allowUnpaid />}>
+          <Route
+            path={ROUTES.stores.onboarding()}
+            element={<StoreOnboardingPage />}
+          />
+          <Route element={<RequireStoreAdmin />}>
+            <Route path={ROUTES.billing()} element={<BillingPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<StoreGate />}>
+          <Route element={<RequirePermission permission="orders.read" />}>
+            <Route path={ROUTES.orders.root()} element={<OrdersPage />} />
+            <Route
+              path={ROUTES.orders.detail(":id")}
+              element={<OrderDetailPage />}
+            />
+          </Route>
+          <Route element={<RequirePermission permission="orders.update" />}>
+            <Route
+              path={ROUTES.orders.edit(":id")}
+              element={<OrderFormPage />}
+            />
+          </Route>
+
+          <Route element={<RequirePermission permission="products.read" />}>
+            <Route path={ROUTES.products.root()} element={<ProductsPage />} />
+            <Route
+              path={ROUTES.products.detail(":id")}
+              element={<ProductDetailPage />}
+            />
+          </Route>
+          <Route element={<RequirePermission permission="products.update" />}>
+            <Route
+              path={ROUTES.products.edit(":id")}
+              element={<ProductFormPage />}
+            />
+          </Route>
+
+          <Route element={<RequirePermission permission="users.read" />}>
+            <Route path={ROUTES.team.users()} element={<TeamUsersPage />} />
+          </Route>
+          <Route element={<RequireStoreAdmin />}>
+            <Route path={ROUTES.team.roles()} element={<RolesPage />} />
+          </Route>
+
+          <Route path={ROUTES.demo.root()} element={<DemoPage />} />
+        </Route>
+
+        <Route element={<RequirePlatformAdmin />}>
+          <Route path={ROUTES.admin.stores()} element={<AdminStoresPage />} />
+          <Route path={ROUTES.admin.users()} element={<AdminUsersPage />} />
+        </Route>
+      </Route>
+
       <Route path="*" element={<HomeRedirect />} />
     </Routes>
   );

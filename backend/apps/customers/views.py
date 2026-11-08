@@ -13,7 +13,7 @@ from apps.stores.mixins import StoreScopedMixin
 
 
 class CustomerStoreMixin(StoreScopedMixin):
-    missing_store_message = "Create a store workspace before managing customers."
+    permission_resource = "customers"
 
     def get_queryset(self):
         return Customer.objects.filter(store=self.store)

@@ -101,7 +101,7 @@ export function Channel3SearchDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -181,7 +181,9 @@ export function Channel3SearchDialog({ open, onOpenChange }: Props) {
         </ul>
 
         {search.isSuccess && (search.data?.results?.length ?? 0) === 0 ? (
-          <p className="text-sm text-body">No Channel3 matches for that query.</p>
+          <p className="text-sm text-body">
+            No Channel3 matches for that query.
+          </p>
         ) : null}
 
         {selected ? (

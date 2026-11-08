@@ -62,7 +62,7 @@ export function WorkspaceCard() {
     storeQuery.isError &&
     storeQuery.error instanceof ApiError &&
     storeQuery.error.status === 404;
-  const canEdit = store?.role === "owner";
+  const canEdit = store?.is_store_admin === true;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -195,7 +195,9 @@ export function WorkspaceCard() {
                           <SelectValue placeholder="Select business type…" />
                         </SelectTrigger>
                         <SelectContent position="popper" align="start">
-                          <SelectItem value="social">Social commerce</SelectItem>
+                          <SelectItem value="social">
+                            Social commerce
+                          </SelectItem>
                           <SelectItem value="storefront">
                             Online storefront
                           </SelectItem>

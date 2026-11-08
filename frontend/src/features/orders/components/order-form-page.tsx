@@ -145,7 +145,9 @@ export function OrderFormPage() {
     if (existing.data) {
       if (existing.data.fulfilment_status !== "draft") {
         toast.error("Only draft orders can be edited.");
-        void navigate(ROUTES.orders.detail(existing.data.id), { replace: true });
+        void navigate(ROUTES.orders.detail(existing.data.id), {
+          replace: true,
+        });
         return;
       }
       form.reset({
@@ -410,7 +412,9 @@ export function OrderFormPage() {
                 <FormField
                   id={`lines.${index}.quantity`}
                   label="Qty"
-                  error={form.formState.errors.lines?.[index]?.quantity?.message}
+                  error={
+                    form.formState.errors.lines?.[index]?.quantity?.message
+                  }
                 >
                   <Input
                     type="number"

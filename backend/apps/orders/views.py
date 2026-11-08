@@ -61,7 +61,7 @@ def _parse_day_end_exclusive(raw: str | None) -> datetime | None:
 
 
 class OrderStoreMixin(StoreScopedMixin):
-    missing_store_message = "Create a store workspace before managing orders."
+    permission_resource = "orders"
 
     def get_queryset(self):
         return (
@@ -202,6 +202,7 @@ class OrderDetailView(OrderStoreMixin, generics.RetrieveUpdateAPIView):
 
 
 class OrderConfirmView(OrderStoreMixin, APIView):
+    permission_action = "update"
     throttle_scope = "writes"
 
     @extend_schema(
@@ -218,6 +219,7 @@ class OrderConfirmView(OrderStoreMixin, APIView):
 
 
 class OrderCancelView(OrderStoreMixin, APIView):
+    permission_action = "update"
     throttle_scope = "writes"
 
     @extend_schema(
@@ -234,6 +236,7 @@ class OrderCancelView(OrderStoreMixin, APIView):
 
 
 class OrderTransitionView(OrderStoreMixin, APIView):
+    permission_action = "update"
     throttle_scope = "writes"
 
     @extend_schema(
@@ -255,6 +258,7 @@ class OrderTransitionView(OrderStoreMixin, APIView):
 
 
 class OrderAbandonPaymentView(OrderStoreMixin, APIView):
+    permission_action = "update"
     throttle_scope = "writes"
 
     @extend_schema(
@@ -271,6 +275,7 @@ class OrderAbandonPaymentView(OrderStoreMixin, APIView):
 
 
 class OrderMarkPaidView(OrderStoreMixin, APIView):
+    permission_action = "update"
     """Temporary until §2.7 verified PayPal webhooks own this transition."""
 
     throttle_scope = "writes"

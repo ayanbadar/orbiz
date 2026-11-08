@@ -3,7 +3,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
-from apps.stores.models import StoreMembership
+from apps.common.testing import create_active_store
+from apps.stores.models import Store
 from apps.stores.services import create_store_for_user
 
 PASSWORD = "Orb1z-pass"
@@ -17,100 +18,47 @@ TEST_SETTINGS = dict(
 @override_settings(**TEST_SETTINGS)
 class StoreApiTests(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="owner@example.com",
-            password=PASSWORD,
-            first_name="Owner",
-        )
-        self.other = User.objects.create_user(
-            email="other@example.com",
-            password=PASSWORD,
-            first_name="Other",
-        )
+        self.user = User.objects.create_user(email="owner@example.com", password=PASSWORD, first_name="Owner")
+        self.other = User.objects.create_user(email="other@example.com", password=PASSWORD, first_name="Other")
 
-    def test_create_store_and_list(self):
+    def test_create_store_starts_unpaid_with_admin_membership(self):
         self.client.force_authenticate(self.user)
         response = self.client.post(
             "/api/v1/stores/",
-            {
-                "name": " Clifton Hoodies ",
-                "currency": "usd",
-                "timezone": "Asia/Karachi",
-                "business_type": "social",
-            },
+            {"name": "Aya Boutique", "currency": "usd", "timezone": "Asia/Karachi", "business_type": "social"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["name"], "Clifton Hoodies")
-        self.assertEqual(response.data["currency"], "USD")
-        self.assertTrue(response.data["is_default"])
-        self.assertEqual(response.data["role"], "owner")
-
-        listed = self.client.get("/api/v1/stores/")
-        self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        self.assertIn("results", listed.data)
-        self.assertEqual(len(listed.data["results"]), 1)
+        self.assertEqual(response.data["status"], "pending_payment")
+        self.assertTrue(response.data["is_store_admin"])
+        self.assertEqual(len(response.data["permissions"]), 16)
 
         me = self.client.get("/api/v1/stores/me/")
-        self.assertEqual(me.status_code, status.HTTP_200_OK)
         self.assertEqual(me.data["id"], response.data["id"])
 
+    def test_user_cannot_create_a_second_store(self):
+        create_store_for_user(user=self.user, name="First")
+        self.client.force_authenticate(self.user)
+        response = self.client.post("/api/v1/stores/", {"name": "Second"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
     def test_other_user_cannot_see_store(self):
+        store = create_active_store(user=self.user)
+        self.client.force_authenticate(self.other)
+        self.assertEqual(self.client.get(f"/api/v1/stores/{store.id}/").status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_store_admin_can_patch_but_staff_cannot(self):
+        from apps.stores.models import Role, StoreMembership
+
+        store = create_active_store(user=self.user)
+        role = Role.objects.create(store=store, name="Viewer", permissions=["products.read"])
+        StoreMembership.objects.create(store=store, user=self.other, role=role)
+
         self.client.force_authenticate(self.user)
-        created = self.client.post(
-            "/api/v1/stores/",
-            {"name": "Only Mine", "currency": "USD", "timezone": "UTC", "business_type": "social"},
-            format="json",
-        )
-        store_id = created.data["id"]
+        ok = self.client.patch(f"/api/v1/stores/{store.id}/", {"name": "Renamed"}, format="json")
+        self.assertEqual(ok.status_code, status.HTTP_200_OK)
 
         self.client.force_authenticate(self.other)
-        detail = self.client.get(f"/api/v1/stores/{store_id}/")
-        self.assertEqual(detail.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_set_default_switches(self):
-        self.client.force_authenticate(self.user)
-        first = self.client.post(
-            "/api/v1/stores/",
-            {"name": "One", "currency": "USD", "timezone": "UTC", "business_type": "social"},
-            format="json",
-        ).data
-        second = self.client.post(
-            "/api/v1/stores/",
-            {"name": "Two", "currency": "USD", "timezone": "UTC", "business_type": "social"},
-            format="json",
-        ).data
-        self.assertTrue(first["is_default"])
-        self.assertFalse(second["is_default"])
-
-        switched = self.client.post("/api/v1/stores/set-default/", {"store_id": second["id"]}, format="json")
-        self.assertEqual(switched.status_code, status.HTTP_200_OK)
-        self.assertTrue(switched.data["is_default"])
-        self.assertEqual(
-            StoreMembership.objects.filter(user=self.user, is_default=True).count(),
-            1,
-        )
-
-    def test_member_cannot_patch_store(self):
-        store = create_store_for_user(
-            user=self.user,
-            name="Owned",
-            currency="USD",
-            timezone="UTC",
-            business_type="social",
-        )
-        StoreMembership.objects.create(
-            store=store,
-            user=self.other,
-            role=StoreMembership.Role.MEMBER,
-            is_default=True,
-        )
-        self.client.force_authenticate(self.other)
-        response = self.client.patch(
-            f"/api/v1/stores/{store.id}/",
-            {"name": "Hijacked"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        store.refresh_from_db()
-        self.assertEqual(store.name, "Owned")
+        denied = self.client.patch(f"/api/v1/stores/{store.id}/", {"name": "Hacked"}, format="json")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Store.objects.get(pk=store.pk).name, "Renamed")

@@ -15,7 +15,9 @@ import type {
   OrderUpdateRequest,
 } from "@/features/orders/types";
 
-async function invalidateOrders(queryClient: ReturnType<typeof useQueryClient>) {
+async function invalidateOrders(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
   await queryClient.invalidateQueries({ queryKey: ORDER_QUERY_KEYS.all });
   await queryClient.invalidateQueries({ queryKey: PRODUCT_QUERY_KEYS.all });
 }

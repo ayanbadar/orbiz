@@ -16,6 +16,18 @@ cd backend && docker compose up --build -d
 cd ../frontend && npm install && npm run dev
 ```
 
+## Tenancy, roles and billing
+
+Three tiers:
+
+- **Super admin** (platform): sees every store and user, invites store admins, and can suspend, deactivate or delete stores and users. Create the first one with `make superuser` (run from `backend/`; the Django `is_superuser` flag marks the super admin).
+- **Store admin**: signs up directly (`/sign-up`) or accepts a super-admin invite, sets up the store, pays the mock **$5/month** plan, then manages the team and **roles** (`/team`, `/team/roles`).
+- **Staff**: invited by email, with a role made of per-area permissions (view/create/edit/delete for products, orders, customers, team). The UI hides what they can't do and the API enforces it.
+
+Suspending a store, or deactivating its admin, locks out everyone in it immediately. An unpaid or lapsed store is locked until the admin pays (`/billing`). Payments are a sandbox: no card is charged, and `DEBUG=True` also shows a decline simulator. A daily Celery beat task (`expire_subscriptions_task`) locks stores whose paid period ended.
+
+In development, invite emails print to the backend console and the invite link is also shown in the UI.
+
 Demo catalog + orders (after you have a seller account):
 
 ```bash

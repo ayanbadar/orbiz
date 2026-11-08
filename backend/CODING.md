@@ -115,6 +115,9 @@ Once authentication exists, the default permission is `IsAuthenticated`. Use `Al
 
 - Session or token auth stays on the server. Never accept a workspace id from the client as proof of access.
 - Object permissions check store membership.
+- Every user belongs to at most one store (`StoreMembership`, one-to-one). Store-scoped views use `StoreScopedMixin` and set `permission_resource` (`products`, `orders`, `customers`, `users`); the HTTP method picks the action (read/create/update/delete), or set `permission_action` on custom POST views. Codes live in `apps/stores/permission_codes.py`.
+- `HasStorePermission` also blocks deactivated users, suspended stores (`store_suspended`) and unpaid stores (`payment_required`) on every request, so deactivation takes effect immediately even for tokens already issued. Store admins hold every permission; roles are managed by store admins only.
+- The platform (super) admin is a role, not a module: its endpoints live in the feature that owns the data (`stores/admin_views.py`, `accounts/admin_views.py`, `invitations`) behind `IsPlatformAdmin` / `PlatformAdminMixin`. Every invite in the app goes through `apps/invitations`, the way every email goes through `apps/notifications`. Create one with `make superuser`. Deactivating a store admin suspends their store.
 - Payment and order status changes check that the transition is legal, not only that the user is logged in.
 
 ## Payments and webhooks

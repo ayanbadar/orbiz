@@ -1,4 +1,7 @@
 import type {
+  AdminStore,
+  AdminStoreListParams,
+  AdminStoreUpdateRequest,
   Paginated,
   Store,
   StoreCreateRequest,
@@ -33,10 +36,35 @@ export class StoreService {
     return response.data;
   }
 
-  static async setDefault(storeId: number): Promise<Store> {
-    const response = await api.post<Store>(`${ROOT}/set-default/`, {
-      store_id: storeId,
-    });
+  // --- Platform admin ---
+  static async listAdmin(
+    params: AdminStoreListParams,
+  ): Promise<Paginated<AdminStore>> {
+    const response = await api.get<Paginated<AdminStore>>(
+      "/api/v1/admin/stores/",
+      {
+        params: {
+          page: params.page,
+          search: params.search || undefined,
+          status: params.status,
+        },
+      },
+    );
     return response.data;
+  }
+
+  static async updateAdmin(
+    id: number,
+    body: AdminStoreUpdateRequest,
+  ): Promise<AdminStore> {
+    const response = await api.patch<AdminStore>(
+      `/api/v1/admin/stores/${id}/`,
+      body,
+    );
+    return response.data;
+  }
+
+  static async deleteAdmin(id: number): Promise<void> {
+    await api.delete(`/api/v1/admin/stores/${id}/`);
   }
 }

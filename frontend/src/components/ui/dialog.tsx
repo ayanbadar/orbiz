@@ -53,12 +53,15 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[24px] bg-card p-6 shadow-lg outline-none",
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] bg-card p-2 shadow-lg outline-none",
           className,
         )}
         {...props}
       >
-        {children}
+        {/* Scroll lives in an inset wrapper so the scrollbar clears the rounded corners. */}
+        <div className="scrollbar-slim grid gap-4 overflow-y-auto p-4">
+          {children}
+        </div>
       </DialogPrimitive.Content>
     </DialogPortal>
   );

@@ -34,13 +34,7 @@ type Props = {
  * a Channel3 CDN or pasted URL; later an upload flow can write an S3/CloudFront URL
  * into the same field — UI stays `src={image_url}`.
  */
-export function ProductImage({
-  src,
-  alt,
-  size = "md",
-  fit,
-  className,
-}: Props) {
+export function ProductImage({ src, alt, size = "md", fit, className }: Props) {
   const [failed, setFailed] = useState(false);
   const url = (src || "").trim();
   const objectFit = fit ?? defaultFit(size);

@@ -48,7 +48,7 @@ export function SignInPage() {
         email: values.email.trim().toLowerCase(),
         password: values.password,
       });
-      navigate(returnPath ?? ROUTES.account(), { replace: true });
+      navigate(returnPath ?? ROUTES.root(), { replace: true });
     } catch (error) {
       if (!applyFieldErrors(error, setError)) {
         toast.error(getErrorMessage(error, "Could not sign in."));
@@ -100,12 +100,12 @@ export function SignInPage() {
         <AuthSubmit pending={login.isPending}>Sign in</AuthSubmit>
 
         <p className="text-sm text-body">
-          New to Orbiz?{" "}
+          Want to sell with Orbiz?{" "}
           <Link
             to={ROUTES.signUp()}
             className="font-semibold text-foreground underline-offset-4 hover:underline"
           >
-            Create an account
+            Create your store
           </Link>
         </p>
       </form>

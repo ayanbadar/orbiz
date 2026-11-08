@@ -40,7 +40,10 @@ function ProductCell({ data }: ICellRendererParams<Product>) {
   return (
     <div className="flex h-full min-w-0 items-center gap-3">
       <ProductImage src={data.image_url} alt={data.name} size="sm" />
-      <span className="truncate font-semibold text-foreground" title={data.name}>
+      <span
+        className="truncate font-semibold text-foreground"
+        title={data.name}
+      >
         {data.name}
       </span>
     </div>
@@ -53,10 +56,7 @@ function StatusCell({ data }: ICellRendererParams<Product>) {
   }
   return (
     <div className="flex h-full items-center overflow-visible">
-      <ProductAvailabilityBadge
-        product={data}
-        className="whitespace-nowrap"
-      />
+      <ProductAvailabilityBadge product={data} className="whitespace-nowrap" />
     </div>
   );
 }
@@ -130,8 +130,7 @@ export function ProductsGrid({
         minWidth: 110,
         cellRenderer: PriceCell,
         filter: serverNumberFilter,
-        valueGetter: ({ data }) =>
-          data ? Number(data.price) : undefined,
+        valueGetter: ({ data }) => (data ? Number(data.price) : undefined),
         comparator: () => 0,
         sort: sortColId === "price" ? sortDir : undefined,
       },

@@ -1,5 +1,6 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.accounts.models import User
@@ -9,12 +10,13 @@ from apps.accounts.services import (
     InvalidResetLink,
     get_user_for_reset,
 )
+from apps.stores.services import create_store_for_user
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name"]
+        fields = ["id", "email", "first_name", "last_name", "is_superuser"]
         read_only_fields = fields
         ref_name = "AuthUser"
 
@@ -62,6 +64,13 @@ class RegisterSerializer(serializers.Serializer):
     )
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    store_name = serializers.CharField(max_length=120)
+
+    def validate_store_name(self, value: str) -> str:
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("Enter a store name.")
+        return name
 
     def validate_email(self, value: str) -> str:
         email = value.strip().lower()
@@ -89,12 +98,16 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password": exc.detail}) from exc
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        """Public signup creates the user and their store (awaiting payment) together."""
         password = validated_data.pop("password")
         validated_data.pop("password_confirm")
-        last_name = validated_data.get("last_name", "")
-        validated_data["last_name"] = last_name.strip()
-        return User.objects.create_user(password=password, **validated_data)
+        store_name = validated_data.pop("store_name")
+        validated_data["last_name"] = validated_data.get("last_name", "").strip()
+        user = User.objects.create_user(password=password, **validated_data)
+        create_store_for_user(user=user, name=store_name)
+        return user
 
 
 class LoginSerializer(serializers.Serializer):
@@ -165,3 +178,17 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 class ForgotPasswordResponseSerializer(MessageSerializer):
     message = serializers.CharField(default=FORGOT_PASSWORD_MESSAGE)
+
+
+class AdminUserUpdateSerializer(serializers.Serializer):
+    """Platform admin edits to any store user."""
+
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate_first_name(self, value: str) -> str:
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("Enter a first name.")
+        return name

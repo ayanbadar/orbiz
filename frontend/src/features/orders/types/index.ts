@@ -9,11 +9,7 @@ export type FulfilmentStatus =
   | "cancelled";
 
 export type PaymentStatus =
-  | "unpaid"
-  | "pending"
-  | "paid"
-  | "failed"
-  | "cancelled";
+  "unpaid" | "pending" | "paid" | "failed" | "cancelled";
 
 export type OrderLine = {
   id: number;

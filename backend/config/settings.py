@@ -17,6 +17,13 @@ env = environ.Env(
     FRONTEND_URL=(str, "http://localhost:5173"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.console.EmailBackend"),
     DEFAULT_FROM_EMAIL=(str, "Orbiz <noreply@orbiz.local>"),
+    EMAIL_HOST=(str, "localhost"),
+    EMAIL_PORT=(int, 587),
+    EMAIL_HOST_USER=(str, ""),
+    EMAIL_HOST_PASSWORD=(str, ""),
+    EMAIL_USE_TLS=(bool, True),
+    EMAIL_USE_SSL=(bool, False),
+    EMAIL_TIMEOUT=(int, 10),
     USE_LOCMEM_CACHE=(bool, False),
 )
 
@@ -42,6 +49,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.notifications",
     "apps.stores",
+    "apps.invitations",
+    "apps.billing",
     "apps.products",
     "apps.customers",
     "apps.orders",
@@ -187,6 +196,13 @@ SPECTACULAR_SETTINGS = {
 
 FRONTEND_URL = env("FRONTEND_URL")
 EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = env("EMAIL_USE_TLS")
+EMAIL_USE_SSL = env("EMAIL_USE_SSL")
+EMAIL_TIMEOUT = env("EMAIL_TIMEOUT")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 CHANNEL3_API_KEY = env("CHANNEL3_API_KEY", default="")
@@ -201,3 +217,9 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BEAT_SCHEDULE = {
+    "expire-subscriptions-daily": {
+        "task": "apps.billing.tasks.expire_subscriptions_task",
+        "schedule": 60 * 60 * 24,
+    },
+}

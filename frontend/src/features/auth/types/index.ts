@@ -3,6 +3,7 @@ export type UserProfile = {
   email: string;
   first_name: string;
   last_name: string;
+  is_superuser: boolean;
 };
 
 export type AuthSession = {
@@ -20,6 +21,7 @@ export type RegisterRequest = LoginRequest & {
   password_confirm: string;
   first_name: string;
   last_name: string;
+  store_name: string;
 };
 
 export type UpdateProfileRequest = {
@@ -43,4 +45,17 @@ export type ResetPasswordRequest = {
   token: string;
   new_password: string;
   new_password_confirm: string;
+};
+
+export type AdminUserListParams = {
+  page: number;
+  search?: string;
+  store?: number;
+  is_active?: boolean;
+};
+
+export type AdminUserUpdateRequest = {
+  first_name?: string;
+  last_name?: string;
+  is_active?: boolean;
 };

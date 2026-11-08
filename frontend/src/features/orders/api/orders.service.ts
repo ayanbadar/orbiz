@@ -12,7 +12,9 @@ import { api } from "@/lib/api";
 const ROOT = "/api/v1/orders";
 
 export class OrderService {
-  static async list(params: OrderListParams = {}): Promise<Paginated<OrderListItem>> {
+  static async list(
+    params: OrderListParams = {},
+  ): Promise<Paginated<OrderListItem>> {
     const response = await api.get<Paginated<OrderListItem>>(`${ROOT}/`, {
       params: {
         q: params.q || undefined,
@@ -75,7 +77,10 @@ export class OrderService {
   }
 
   static async abandonPayment(id: number): Promise<Order> {
-    const response = await api.post<Order>(`${ROOT}/${id}/abandon-payment/`, {});
+    const response = await api.post<Order>(
+      `${ROOT}/${id}/abandon-payment/`,
+      {},
+    );
     return response.data;
   }
 }
