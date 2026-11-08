@@ -18,6 +18,7 @@ const signUpSchema = z
   .object({
     firstName: z.string().trim().min(1, "Enter your first name"),
     lastName: z.string().trim(),
+    storeName: z.string().trim().min(1, "Enter your store name"),
     email: z.email("Enter a valid email address"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     passwordConfirm: z.string(),
@@ -42,6 +43,7 @@ export function SignUpPage() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      storeName: "",
       email: "",
       password: "",
       passwordConfirm: "",
@@ -56,8 +58,9 @@ export function SignUpPage() {
         password_confirm: values.passwordConfirm,
         first_name: values.firstName.trim(),
         last_name: values.lastName.trim(),
+        store_name: values.storeName.trim(),
       });
-      navigate(ROUTES.account(), { replace: true });
+      navigate(ROUTES.stores.onboarding(), { replace: true });
     } catch (error) {
       if (!applyFieldErrors(error, setError)) {
         toast.error(getErrorMessage(error, "Could not create the account."));
@@ -67,15 +70,17 @@ export function SignUpPage() {
 
   return (
     <AuthLayout
-      title="Open your workspace."
-      subtitle="Create an account to turn customer messages into orders you can review."
+      title="Open your store."
+      subtitle="Create your store admin account. Activate it with the $5/month plan, then invite your team."
     >
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="space-y-1">
           <h2 className="font-sans text-2xl font-semibold tracking-tight">
-            Create account
+            Create your store
           </h2>
-          <p className="text-sm text-body">Use an email you can open later.</p>
+          <p className="text-sm text-body">
+            You&apos;ll be the admin of this store.
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -94,6 +99,13 @@ export function SignUpPage() {
             registration={register("lastName")}
           />
         </div>
+        <AuthField
+          id="store-name"
+          label="Store name"
+          autoComplete="organization"
+          error={errors.storeName?.message}
+          registration={register("storeName")}
+        />
         <AuthField
           id="email"
           label="Email"
@@ -120,7 +132,7 @@ export function SignUpPage() {
         />
 
         <AuthSubmit pending={registerAccount.isPending}>
-          Create account
+          Create your store
         </AuthSubmit>
 
         <p className="text-sm text-body">

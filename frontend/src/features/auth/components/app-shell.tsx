@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Menu className="size-5" />
             </Button>
-            <Link to={ROUTES.products.root()} className="inline-flex">
+            <Link to={ROUTES.root()} className="inline-flex">
               <Logo className="h-9 w-9" />
             </Link>
           </div>

@@ -69,7 +69,7 @@ def _order_by_expression(ordering: str):
 
 
 class CustomerStoreMixin(StoreScopedMixin):
-    missing_store_message = "Create a store workspace before managing customers."
+    permission_resource = "customers"
 
     def get_queryset(self):
         # Every customer response carries its order stats (one grouped query, no N+1).

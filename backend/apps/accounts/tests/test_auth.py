@@ -46,6 +46,7 @@ class AuthApiTests(APITestCase):
                 "password_confirm": PASSWORD,
                 "first_name": "Noor",
                 "last_name": "Ali",
+                "store_name": "Noor's Shop",
             },
             format="json",
         )
@@ -53,7 +54,10 @@ class AuthApiTests(APITestCase):
         self.assertEqual(response.data["user"]["email"], "new.seller@example.com")
         self.assertTrue(response.data["access"])
         self.assertTrue(response.data["refresh"])
-        self.assertTrue(User.objects.filter(email="new.seller@example.com").exists())
+        user = User.objects.get(email="new.seller@example.com")
+        self.assertTrue(user.membership.is_store_admin)
+        self.assertEqual(user.membership.store.name, "Noor's Shop")
+        self.assertEqual(user.membership.store.status, "pending_payment")
 
     def test_register_rejects_duplicate_email_and_mismatched_passwords(self):
         duplicate = self.client.post(
@@ -63,6 +67,7 @@ class AuthApiTests(APITestCase):
                 "password": PASSWORD,
                 "password_confirm": PASSWORD,
                 "first_name": "Aya",
+                "store_name": "Dup Shop",
             },
             format="json",
         )
@@ -76,6 +81,7 @@ class AuthApiTests(APITestCase):
                 "password": PASSWORD,
                 "password_confirm": "different-pass",
                 "first_name": "Noor",
+                "store_name": "Noor Shop",
             },
             format="json",
         )

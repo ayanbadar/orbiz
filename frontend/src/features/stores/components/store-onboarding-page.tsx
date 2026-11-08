@@ -1,11 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Select,
   SelectContent,
@@ -19,16 +21,29 @@ import {
   applyFieldErrors,
   getErrorMessage,
 } from "@/features/auth/utils/form-errors";
-import { useCreateStore } from "@/features/stores/api/stores.api";
+import {
+  useCurrentStore,
+  useUpdateStore,
+} from "@/features/stores/api/stores.api";
+import {
+  detectTimezone,
+  getCurrencyOptions,
+  getTimezoneOptions,
+} from "@/features/stores/utils/locale-options";
+
+const CURRENCY_OPTIONS = getCurrencyOptions();
+const TIMEZONE_OPTIONS = getTimezoneOptions();
+const CURRENCY_CODES = new Set(CURRENCY_OPTIONS.map((o) => o.value));
+const TIMEZONES = new Set(TIMEZONE_OPTIONS.map((o) => o.value));
 
 const schema = z.object({
   name: z.string().trim().min(1, "Enter a store name."),
   currency: z
     .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code."),
-  timezone: z.string().trim().min(1, "Enter a timezone."),
+    .refine((v) => CURRENCY_CODES.has(v), "Select a currency from the list."),
+  timezone: z
+    .string()
+    .refine((v) => TIMEZONES.has(v), "Select a timezone from the list."),
   business_type: z.enum(["social", "storefront", "wholesale", "other"]),
 });
 
@@ -36,44 +51,79 @@ type FormValues = z.infer<typeof schema>;
 
 export function StoreOnboardingPage() {
   const navigate = useNavigate();
-  const createStore = useCreateStore();
+  const storeQuery = useCurrentStore();
+  const store = storeQuery.data;
+  const updateStore = useUpdateStore(store?.id);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
       currency: "USD",
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      timezone: detectTimezone(TIMEZONE_OPTIONS),
       business_type: "social",
     },
   });
 
+  useEffect(() => {
+    if (!store) return;
+    form.reset({
+      name: store.name,
+      currency: store.currency,
+      timezone: store.timezone || form.getValues("timezone"),
+      business_type: store.business_type,
+    });
+  }, [store, form]);
+
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await createStore.mutateAsync(values);
-      toast.success("Store workspace created.");
-      navigate(ROUTES.products.root(), { replace: true });
+      const saved = await updateStore.mutateAsync(values);
+      toast.success("Store details saved.");
+      // Unpaid stores continue to activation; paid ones go to work.
+      navigate(
+        saved.status === "pending_payment" ? ROUTES.billing() : ROUTES.root(),
+        { replace: true },
+      );
     } catch (error) {
       if (!applyFieldErrors(error, form.setError)) {
-        toast.error(getErrorMessage(error, "Could not create store."));
+        toast.error(getErrorMessage(error, "Could not save store details."));
       }
     }
   });
+
+  if (storeQuery.isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground" role="status">
+        Loading…
+      </p>
+    );
+  }
+  if (store && !store.is_store_admin) {
+    return <Navigate to={ROUTES.root()} replace />;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
       <header className="space-y-2">
         <h1 className="text-[32px] font-semibold tracking-tight text-foreground">
-          Create your store
+          Set up your store
         </h1>
         <p className="text-body">
-          Set up a workspace with currency and timezone before adding products.
+          Confirm your currency and timezone. Next you&apos;ll activate the
+          $5/month plan.
         </p>
       </header>
 
-      <form onSubmit={onSubmit} className="space-y-4 rounded-[24px] bg-card p-6">
+      <form
+        onSubmit={onSubmit}
+        className="space-y-4 rounded-[24px] bg-card p-6"
+      >
         <div className="space-y-2">
           <Label htmlFor="name">Store name</Label>
-          <Input id="name" {...form.register("name")} aria-invalid={!!form.formState.errors.name} />
+          <Input
+            id="name"
+            {...form.register("name")}
+            aria-invalid={!!form.formState.errors.name}
+          />
           {form.formState.errors.name ? (
             <p className="text-sm text-destructive" role="alert">
               {form.formState.errors.name.message}
@@ -82,24 +132,24 @@ export function StoreOnboardingPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="currency">Currency</Label>
-            <Input id="currency" {...form.register("currency")} />
-            {form.formState.errors.currency ? (
-              <p className="text-sm text-destructive" role="alert">
-                {form.formState.errors.currency.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Input id="timezone" {...form.register("timezone")} />
-            {form.formState.errors.timezone ? (
-              <p className="text-sm text-destructive" role="alert">
-                {form.formState.errors.timezone.message}
-              </p>
-            ) : null}
-          </div>
+          <SearchableSelect
+            id="currency"
+            label="Currency"
+            name="currency"
+            control={form.control}
+            options={CURRENCY_OPTIONS}
+            placeholder="Search currency…"
+            error={form.formState.errors.currency?.message}
+          />
+          <SearchableSelect
+            id="timezone"
+            label="Timezone"
+            name="timezone"
+            control={form.control}
+            options={TIMEZONE_OPTIONS}
+            placeholder="Search timezone…"
+            error={form.formState.errors.timezone?.message}
+          />
         </div>
 
         <div className="space-y-2">
@@ -136,10 +186,10 @@ export function StoreOnboardingPage() {
 
         <Button
           type="submit"
-          disabled={form.formState.isSubmitting || createStore.isPending}
+          disabled={form.formState.isSubmitting || updateStore.isPending}
           className="h-12 rounded-[24px] px-6 font-semibold"
         >
-          {createStore.isPending ? "Creating…" : "Create store"}
+          {updateStore.isPending ? "Saving…" : "Save and continue"}
         </Button>
       </form>
     </div>

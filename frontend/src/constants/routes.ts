@@ -11,6 +11,18 @@ export const ROUTES = {
   forgotPassword: () => joinPath(ROUTES.root(), "forgot-password"),
   resetPassword: () => joinPath(ROUTES.root(), "reset-password"),
   account: () => joinPath(ROUTES.root(), "account"),
+  acceptInvite: () => joinPath(ROUTES.root(), "accept-invite"),
+  billing: () => joinPath(ROUTES.root(), "billing"),
+
+  team: {
+    users: () => joinPath(ROUTES.root(), "team"),
+    roles: () => joinPath(ROUTES.root(), "team", "roles"),
+  },
+
+  admin: {
+    stores: () => joinPath(ROUTES.root(), "admin", "stores"),
+    users: () => joinPath(ROUTES.root(), "admin", "users"),
+  },
 
   stores: {
     onboarding: () => joinPath(ROUTES.root(), "stores", "onboarding"),
@@ -18,15 +30,14 @@ export const ROUTES = {
 
   products: {
     root: () => joinPath(ROUTES.root(), "products"),
-    new: () => joinPath(ROUTES.products.root(), "new"),
-    detail: (id: number | string) => joinPath(ROUTES.products.root(), String(id)),
+    detail: (id: number | string) =>
+      joinPath(ROUTES.products.root(), String(id)),
     edit: (id: number | string) =>
       joinPath(ROUTES.products.root(), String(id), "edit"),
   },
 
   orders: {
     root: () => joinPath(ROUTES.root(), "orders"),
-    new: () => joinPath(ROUTES.orders.root(), "new"),
     detail: (id: number | string) => joinPath(ROUTES.orders.root(), String(id)),
     edit: (id: number | string) =>
       joinPath(ROUTES.orders.root(), String(id), "edit"),

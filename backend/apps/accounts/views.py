@@ -12,6 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts.models import User
+from apps.common.exceptions import ForbiddenError
 from apps.accounts.serializers import (
     AuthTokenResponseSerializer,
     ChangePasswordSerializer,
@@ -32,6 +33,13 @@ from apps.accounts.services import (
     issue_tokens,
     send_password_reset_email,
 )
+
+
+def _raise_if_deactivated(email: str, password: str) -> None:
+    """Tell a correctly-authenticated but deactivated user why they can't sign in."""
+    candidate = User.objects.filter(email__iexact=email).first()
+    if candidate and not candidate.is_active and candidate.check_password(password):
+        raise ForbiddenError("This account has been deactivated.", code="account_deactivated")
 
 
 class PublicAPIView(APIView):
@@ -75,7 +83,10 @@ class LoginView(PublicAPIView):
             email=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
         )
-        if user is None or not user.is_active:
+        if user is None:
+            _raise_if_deactivated(
+                serializer.validated_data["email"], serializer.validated_data["password"]
+            )
             raise AuthenticationFailed(INVALID_CREDENTIALS_MESSAGE)
         update_last_login(None, user)
         return Response(_token_payload(user))

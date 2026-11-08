@@ -16,7 +16,9 @@ export type ProductAvailabilityLabel =
   (typeof PRODUCT_AVAILABILITY_LABELS)[number];
 
 /** Catalog / stock labels derived on the client — no backend field needed. */
-export function getProductAvailabilityLabel(product: AvailabilitySlice): string {
+export function getProductAvailabilityLabel(
+  product: AvailabilitySlice,
+): string {
   if (!product.is_active) {
     return "Inactive";
   }

@@ -21,6 +21,7 @@ import {
 } from "@/features/orders/components/order-actions";
 import { OrderStatusPair } from "@/features/orders/components/order-status-pair";
 import { OrderTimeline } from "@/features/orders/components/order-timeline";
+import { Can } from "@/features/auth/components/can";
 import { PaypalSandboxCard } from "@/features/orders/components/paypal-sandbox-card";
 
 
@@ -80,7 +81,9 @@ export function OrderDetailPage() {
                   </p>
                 ) : null}
               </div>
-              <OrderActions order={order} confirm={confirm} />
+              <Can permission="orders.update">
+                <OrderActions order={order} confirm={confirm} />
+              </Can>
             </header>
 
             <div className="grid gap-4 sm:grid-cols-2">

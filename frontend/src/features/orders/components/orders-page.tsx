@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
-import { useDeferredValue, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useDeferredValue, useMemo, useState } from "react";
 import type { FilterModel } from "ag-grid-community";
 import {
   parseAsInteger,
@@ -13,10 +12,10 @@ import { FilterChip } from "@/components/filter-chip";
 import { DEFAULT_PAGE_SIZE } from "@/components/pagination";
 import { ResourceListChrome } from "@/components/resource-list-chrome";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
 import { useCustomer } from "@/features/customers/api/customers.api";
 import { useOrders } from "@/features/orders/api/orders.api";
+import { OrderDialog } from "@/features/orders/components/order-dialog";
 import { OrdersGrid } from "@/features/orders/components/orders-grid";
 import type {
   FulfilmentStatus,
@@ -27,6 +26,7 @@ import {
   orderFilterModelToPatch,
   orderFiltersToFilterModel,
 } from "@/features/orders/utils/order-grid-filters";
+import { Can } from "@/features/auth/components/can";
 import { useStoreGate } from "@/features/stores/components/use-store-gate";
 import { getResourceListState } from "@/lib/resource-list-state";
 
@@ -66,6 +66,7 @@ const PAYMENT_FILTERS = [
 export function OrdersPage() {
   const storeGate = useStoreGate();
   const { store, storeReady } = storeGate;
+  const [createOpen, setCreateOpen] = useState(false);
   const [filters, setFilters] = useQueryStates({
     q: parseAsString.withDefault(""),
     number: parseAsString.withDefault(""),
@@ -179,133 +180,141 @@ export function OrdersPage() {
   };
 
   return (
-    <ResourceListChrome
-      title="Orders"
-      subtitle={
-        store
-          ? `${store.name} · draft, confirm, and track fulfilment`
-          : "Orders for your store workspace."
-      }
-      actions={
-        <Button
-          asChild
-          size="cta"
-        >
-          <Link to={ROUTES.orders.new()}>Create order</Link>
-        </Button>
-      }
-      searchValue={filters.q}
-      searchPlaceholder="Search number, customer, SKU…"
-      onSearchChange={(q) => {
-        void setFilters({ q, page: 1 });
-      }}
-      hasActiveFilters={hasActiveFilters}
-      onClearFilters={clearFilters}
-      filters={
-        <>
-          {filters.customer_id ? (
-            <FilterChip
-              active
-              onClick={() => void setFilters({ customer_id: null, page: 1 })}
-            >
-              <span>
-                Customer: {filteredCustomer.data?.name ?? `#${filters.customer_id}`}
-              </span>
-              <X aria-hidden />
-              <span className="sr-only">Remove customer filter</span>
-            </FilterChip>
-          ) : null}
-          <FilterChip
-            active={filters.fulfilment_status === "draft"}
-            onClick={() =>
-              void setFilters({
-                fulfilment_status:
-                  filters.fulfilment_status === "draft" ? null : "draft",
-                page: 1,
-              })
-            }
-          >
-            Drafts
-          </FilterChip>
-          <FilterChip
-            active={filters.fulfilment_status === "unfulfilled"}
-            onClick={() =>
-              void setFilters({
-                fulfilment_status:
-                  filters.fulfilment_status === "unfulfilled"
-                    ? null
-                    : "unfulfilled",
-                page: 1,
-              })
-            }
-          >
-            Unfulfilled
-          </FilterChip>
-          <FilterChip
-            active={filters.payment_status === "pending"}
-            onClick={() =>
-              void setFilters({
-                payment_status:
-                  filters.payment_status === "pending" ? null : "pending",
-                page: 1,
-              })
-            }
-          >
-            Payment pending
-          </FilterChip>
-        </>
-      }
-      isLoading={showInitialLoading}
-      isError={ordersQuery.isError}
-      errorMessage={getErrorMessage(
-        ordersQuery.error,
-        "Failed to load orders.",
-      )}
-      onRetry={() => {
-        void ordersQuery.refetch();
-      }}
-      isRefetching={isRefetching}
-      showEmpty={showEmpty}
-      empty={
-        hasActiveFilters ? (
-          <p
-            className="max-w-sm text-center text-sm text-muted-foreground"
-            role="status"
-          >
-            No orders match these filters.
-          </p>
-        ) : (
-          <div className="max-w-sm space-y-3 text-center">
-            <p className="text-lg font-semibold text-foreground">No orders yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create a draft from a customer request, confirm when stock is
-              ready, then track payment separately.
-            </p>
-            <Button
-              asChild
-              size="cta"
-            >
-              <Link to={ROUTES.orders.new()}>Create order</Link>
+    <>
+      <ResourceListChrome
+        title="Orders"
+        subtitle={
+          store
+            ? `${store.name} · draft, confirm, and track fulfilment`
+            : "Orders for your store workspace."
+        }
+        actions={
+          <Can permission="orders.create">
+            <Button type="button" size="cta" onClick={() => setCreateOpen(true)}>
+              Create order
             </Button>
-          </div>
-        )
-      }
-      showPagination={showPagination}
-      page={filters.page}
-      totalCount={totalCount}
-      onPageChange={(page) => {
-        void setFilters({ page });
-      }}
-    >
-      <OrdersGrid
-        orders={rows}
-        ordering={filters.ordering}
-        onOrderingChange={(ordering) => {
-          void setFilters({ ordering, page: 1 });
+          </Can>
+        }
+        searchValue={filters.q}
+        searchPlaceholder="Search number, customer, SKU…"
+        onSearchChange={(q) => {
+          void setFilters({ q, page: 1 });
         }}
-        filterModel={filterModel}
-        onFilterModelChange={onFilterModelChange}
-      />
-    </ResourceListChrome>
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        filters={
+          <>
+            {filters.customer_id ? (
+              <FilterChip
+                active
+                onClick={() => void setFilters({ customer_id: null, page: 1 })}
+              >
+                <span>
+                  Customer:{" "}
+                  {filteredCustomer.data?.name ?? `#${filters.customer_id}`}
+                </span>
+                <X aria-hidden />
+                <span className="sr-only">Remove customer filter</span>
+              </FilterChip>
+            ) : null}
+            <FilterChip
+              active={filters.fulfilment_status === "draft"}
+              onClick={() =>
+                void setFilters({
+                  fulfilment_status:
+                    filters.fulfilment_status === "draft" ? null : "draft",
+                  page: 1,
+                })
+              }
+            >
+              Drafts
+            </FilterChip>
+            <FilterChip
+              active={filters.fulfilment_status === "unfulfilled"}
+              onClick={() =>
+                void setFilters({
+                  fulfilment_status:
+                    filters.fulfilment_status === "unfulfilled"
+                      ? null
+                      : "unfulfilled",
+                  page: 1,
+                })
+              }
+            >
+              Unfulfilled
+            </FilterChip>
+            <FilterChip
+              active={filters.payment_status === "pending"}
+              onClick={() =>
+                void setFilters({
+                  payment_status:
+                    filters.payment_status === "pending" ? null : "pending",
+                  page: 1,
+                })
+              }
+            >
+              Payment pending
+            </FilterChip>
+          </>
+        }
+        isLoading={showInitialLoading}
+        isError={ordersQuery.isError}
+        errorMessage={getErrorMessage(
+          ordersQuery.error,
+          "Failed to load orders.",
+        )}
+        onRetry={() => {
+          void ordersQuery.refetch();
+        }}
+        isRefetching={isRefetching}
+        showEmpty={showEmpty}
+        empty={
+          hasActiveFilters ? (
+            <p
+              className="max-w-sm text-center text-sm text-muted-foreground"
+              role="status"
+            >
+              No orders match these filters.
+            </p>
+          ) : (
+            <div className="max-w-sm space-y-3 text-center">
+              <p className="text-lg font-semibold text-foreground">
+                No orders yet
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Create a draft from a customer request, confirm when stock is
+                ready, then track payment separately.
+              </p>
+              <Can permission="orders.create">
+                <Button
+                  type="button"
+                  size="cta"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  Create order
+                </Button>
+              </Can>
+            </div>
+          )
+        }
+        showPagination={showPagination}
+        page={filters.page}
+        totalCount={totalCount}
+        onPageChange={(page) => {
+          void setFilters({ page });
+        }}
+      >
+        <OrdersGrid
+          orders={rows}
+          ordering={filters.ordering}
+          onOrderingChange={(ordering) => {
+            void setFilters({ ordering, page: 1 });
+          }}
+          filterModel={filterModel}
+          onFilterModelChange={onFilterModelChange}
+        />
+      </ResourceListChrome>
+      <OrderDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+    </>
   );
 }

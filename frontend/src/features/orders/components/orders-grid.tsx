@@ -130,8 +130,7 @@ export function OrdersGrid({
         minWidth: 110,
         sortable: true,
         filter: serverNumberFilter,
-        valueGetter: ({ data }) =>
-          data ? Number(data.total) : undefined,
+        valueGetter: ({ data }) => (data ? Number(data.total) : undefined),
         comparator: () => 0,
         sort: sortFor("total"),
         cellRenderer: TotalCell,

@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from apps.products.models import Product
 from apps.stores.models import StoreMembership
-from apps.stores.services import create_store_for_user, get_default_store
+from apps.stores.services import create_store_for_user, get_user_store
 
 User = get_user_model()
 
@@ -124,7 +124,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         email = (options.get("email") or "").strip().lower()
         user = self._resolve_user(email)
-        store = get_default_store(user)
+        store = get_user_store(user)
         if store is None:
             store = create_store_for_user(
                 user=user,
@@ -133,6 +133,8 @@ class Command(BaseCommand):
                 timezone="UTC",
                 business_type="social",
             )
+            store.status = store.Status.ACTIVE  # demo data should be usable straight away
+            store.save(update_fields=["status", "updated_at"])
             self.stdout.write(self.style.WARNING(f"Created store '{store.name}' for {user.email}."))
 
         skus = [row["sku"] for row in DEMO_PRODUCTS]
@@ -179,7 +181,7 @@ class Command(BaseCommand):
 
         membership = (
             StoreMembership.objects.select_related("user")
-            .filter(role=StoreMembership.Role.OWNER)
+            .filter(is_store_admin=True)
             .order_by("created_at")
             .first()
         )

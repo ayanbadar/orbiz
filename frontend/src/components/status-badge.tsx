@@ -23,3 +23,11 @@ export function StatusBadge({
     </span>
   );
 }
+
+/** Tone classes for StatusBadge, matching the order/payment badges. */
+export const STATUS_TONES = {
+  positive: "bg-muted text-positive-deep",
+  warning: "bg-warning text-warning-content",
+  negative: "bg-negative-bg text-white",
+  neutral: "bg-secondary text-foreground",
+} as const;

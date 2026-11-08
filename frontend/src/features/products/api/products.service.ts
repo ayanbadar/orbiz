@@ -14,7 +14,9 @@ import { api } from "@/lib/api";
 const ROOT = "/api/v1/products";
 
 export class ProductService {
-  static async list(params: ProductListParams = {}): Promise<Paginated<Product>> {
+  static async list(
+    params: ProductListParams = {},
+  ): Promise<Paginated<Product>> {
     const response = await api.get<Paginated<Product>>(`${ROOT}/`, {
       params: {
         q: params.q || undefined,
@@ -51,7 +53,10 @@ export class ProductService {
     return response.data;
   }
 
-  static async update(id: number, body: ProductUpdateRequest): Promise<Product> {
+  static async update(
+    id: number,
+    body: ProductUpdateRequest,
+  ): Promise<Product> {
     const response = await api.patch<Product>(`${ROOT}/${id}/`, body);
     return response.data;
   }
