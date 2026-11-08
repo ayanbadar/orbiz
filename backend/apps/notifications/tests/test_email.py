@@ -44,7 +44,10 @@ class QueueEmailTests(TestCase):
             body="A note.",
         )
 
-        with patch("apps.notifications.tasks.send_mail", side_effect=ConnectionError("smtp down")):
+        with patch(
+            "apps.notifications.tasks.EmailMultiAlternatives.send",
+            side_effect=ConnectionError("smtp down"),
+        ):
             with self.assertRaises(ConnectionError):
                 deliver_email(log)
 

@@ -1,5 +1,5 @@
+import { X } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import type { FilterModel } from "ag-grid-community";
 import {
   parseAsInteger,
@@ -9,12 +9,11 @@ import {
 } from "nuqs";
 
 import { FilterChip } from "@/components/filter-chip";
-import { DEFAULT_PAGE_SIZE, getPageCount } from "@/components/pagination";
-import { QueryState } from "@/components/query-state";
+import { DEFAULT_PAGE_SIZE } from "@/components/pagination";
 import { ResourceListChrome } from "@/components/resource-list-chrome";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
+import { useCustomer } from "@/features/customers/api/customers.api";
 import { useOrders } from "@/features/orders/api/orders.api";
 import { OrderDialog } from "@/features/orders/components/order-dialog";
 import { OrdersGrid } from "@/features/orders/components/orders-grid";
@@ -27,9 +26,9 @@ import {
   orderFilterModelToPatch,
   orderFiltersToFilterModel,
 } from "@/features/orders/utils/order-grid-filters";
-import { useCurrentStore } from "@/features/stores/api/stores.api";
-import { ApiError } from "@/lib/api";
 import { Can } from "@/features/auth/components/can";
+import { useStoreGate } from "@/features/stores/components/use-store-gate";
+import { getResourceListState } from "@/lib/resource-list-state";
 
 const ORDER_ORDERINGS = [
   "created_at",
@@ -60,15 +59,20 @@ const PAYMENT_FILTERS = [
   "paid",
   "failed",
   "cancelled",
+  "partially_refunded",
+  "refunded",
 ] as const satisfies readonly PaymentStatus[];
 
 export function OrdersPage() {
-  const storeQuery = useCurrentStore();
+  const storeGate = useStoreGate();
+  const { store, storeReady } = storeGate;
   const [createOpen, setCreateOpen] = useState(false);
   const [filters, setFilters] = useQueryStates({
     q: parseAsString.withDefault(""),
     number: parseAsString.withDefault(""),
     customer_name: parseAsString.withDefault(""),
+    // Set by a customer profile's "View all orders" link.
+    customer_id: parseAsInteger,
     fulfilment_status: parseAsStringLiteral(FULFILMENT_FILTERS),
     payment_status: parseAsStringLiteral(PAYMENT_FILTERS),
     total_min: parseAsString,
@@ -81,12 +85,6 @@ export function OrdersPage() {
   const deferredQ = useDeferredValue(filters.q);
   const deferredNumber = useDeferredValue(filters.number);
   const deferredCustomer = useDeferredValue(filters.customer_name);
-
-  const storeReady = Boolean(storeQuery.data);
-  const storeMissing =
-    storeQuery.isError &&
-    storeQuery.error instanceof ApiError &&
-    storeQuery.error.status === 404;
 
   const filterModel = useMemo(
     () =>
@@ -117,6 +115,7 @@ export function OrdersPage() {
       q: deferredQ || undefined,
       number: deferredNumber || undefined,
       customer_name: deferredCustomer || undefined,
+      customer_id: filters.customer_id ?? undefined,
       fulfilment_status: filters.fulfilment_status ?? undefined,
       payment_status: filters.payment_status ?? undefined,
       total_min: filters.total_min ?? undefined,
@@ -130,50 +129,31 @@ export function OrdersPage() {
     { enabled: storeReady },
   );
 
-  if (storeMissing) {
-    return <Navigate to={ROUTES.stores.onboarding()} replace />;
+  const filteredCustomer = useCustomer(filters.customer_id ?? 0);
+
+  if (storeGate.gate) {
+    return storeGate.gate;
   }
 
-  if (storeQuery.isError) {
-    return (
-      <QueryState
-        isLoading={false}
-        isError
-        errorMessage={getErrorMessage(
-          storeQuery.error,
-          "Failed to load your store workspace.",
-        )}
-        onRetry={() => {
-          void storeQuery.refetch();
-        }}
-      >
-        {null}
-      </QueryState>
-    );
-  }
-
-  const rows = ordersQuery.data?.results ?? [];
-  const totalCount = ordersQuery.data?.count ?? 0;
-  const showPagination = getPageCount(totalCount, DEFAULT_PAGE_SIZE) > 1;
-  const showInitialLoading =
-    (storeQuery.isLoading && !storeQuery.data) ||
-    (ordersQuery.isLoading && !ordersQuery.data);
-  const isRefetching = ordersQuery.isFetching && !showInitialLoading;
-  const showEmpty =
-    !showInitialLoading &&
-    storeReady &&
-    rows.length === 0 &&
-    !ordersQuery.isPlaceholderData;
+  const {
+    rows,
+    totalCount,
+    showPagination,
+    showInitialLoading,
+    isRefetching,
+    showEmpty,
+  } = getResourceListState(ordersQuery, storeGate);
   const hasActiveFilters = Boolean(
     filters.q ||
-    filters.number ||
-    filters.customer_name ||
-    filters.fulfilment_status ||
-    filters.payment_status ||
-    filters.total_min ||
-    filters.total_max ||
-    filters.created_after ||
-    filters.created_before,
+      filters.number ||
+      filters.customer_name ||
+      filters.customer_id ||
+      filters.fulfilment_status ||
+      filters.payment_status ||
+      filters.total_min ||
+      filters.total_max ||
+      filters.created_after ||
+      filters.created_before,
   );
 
   const onFilterModelChange = (model: FilterModel) => {
@@ -188,6 +168,7 @@ export function OrdersPage() {
       q: "",
       number: "",
       customer_name: "",
+      customer_id: null,
       fulfilment_status: null,
       payment_status: null,
       total_min: null,
@@ -203,17 +184,13 @@ export function OrdersPage() {
       <ResourceListChrome
         title="Orders"
         subtitle={
-          storeQuery.data
-            ? `${storeQuery.data.name} · draft, confirm, and track fulfilment`
+          store
+            ? `${store.name} · draft, confirm, and track fulfilment`
             : "Orders for your store workspace."
         }
         actions={
           <Can permission="orders.create">
-            <Button
-              type="button"
-              className="h-12 rounded-[24px] px-6 text-base font-semibold"
-              onClick={() => setCreateOpen(true)}
-            >
+            <Button type="button" size="cta" onClick={() => setCreateOpen(true)}>
               Create order
             </Button>
           </Can>
@@ -227,6 +204,19 @@ export function OrdersPage() {
         onClearFilters={clearFilters}
         filters={
           <>
+            {filters.customer_id ? (
+              <FilterChip
+                active
+                onClick={() => void setFilters({ customer_id: null, page: 1 })}
+              >
+                <span>
+                  Customer:{" "}
+                  {filteredCustomer.data?.name ?? `#${filters.customer_id}`}
+                </span>
+                <X aria-hidden />
+                <span className="sr-only">Remove customer filter</span>
+              </FilterChip>
+            ) : null}
             <FilterChip
               active={filters.fulfilment_status === "draft"}
               onClick={() =>
@@ -298,7 +288,7 @@ export function OrdersPage() {
               <Can permission="orders.create">
                 <Button
                   type="button"
-                  className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                  size="cta"
                   onClick={() => setCreateOpen(true)}
                 >
                   Create order

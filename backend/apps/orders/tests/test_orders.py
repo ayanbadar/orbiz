@@ -89,6 +89,28 @@ class OrderApiTests(APITestCase):
         foreign = self.client.get(f"/api/v1/orders/{created.data['id']}/")
         self.assertEqual(foreign.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_list_filters_by_customer_id(self):
+        self.client.force_authenticate(self.user)
+        mine = self._create_draft()
+        other_customer = Customer.objects.create(store=self.store, name="Bilal")
+        other = self.client.post(
+            "/api/v1/orders/",
+            {
+                "customer_id": other_customer.id,
+                "lines": [{"product_id": self.product.id, "quantity": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(other.status_code, status.HTTP_201_CREATED)
+
+        filtered = self.client.get(f"/api/v1/orders/?customer_id={self.customer.id}")
+        self.assertEqual([row["id"] for row in filtered.data["results"]], [mine.data["id"]])
+
+        # A malformed id is ignored rather than raising a 500.
+        unfiltered = self.client.get("/api/v1/orders/?customer_id=abc")
+        self.assertEqual(unfiltered.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(unfiltered.data["results"]), 2)
+
     def test_empty_lines_rejected(self):
         self.client.force_authenticate(self.user)
         response = self.client.post(

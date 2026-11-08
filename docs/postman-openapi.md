@@ -1,4 +1,4 @@
-# OpenAPI → Postman (Stores / Products / Customers / Orders)
+# OpenAPI → Postman (Stores / Products / Customers / Orders / Payments)
 
 Orbiz serves the live schema from the API. Export that into Postman for the hackathon demo.
 
@@ -28,12 +28,20 @@ Orbiz serves the live schema from the API. Export that into Postman for the hack
 - `POST /api/v1/products/import-from-channel3/`
 - `GET/POST /api/v1/customers/`
 - `GET/POST /api/v1/orders/`
-- `POST /api/v1/orders/{id}/confirm/` — locks + deducts stock
-- `POST /api/v1/orders/{id}/mark-paid/` — demo / pre-PayPal
+- `POST /api/v1/orders/{id}/confirm/` — locks + deducts stock; optional body `{notify_customer?: boolean}` (default false) also emails the customer an order confirmation — 400 `notify_customer` if the customer has no email, checked before anything is confirmed
+- `POST /api/v1/orders/{id}/mark-paid/` — demo / offline fallback (prefer PayPal Sandbox)
 - `POST /api/v1/orders/{id}/abandon-payment/` — payment cancelled, order stays unfulfilled
 - `POST /api/v1/orders/{id}/transition/` — body may include `allow_unpaid`; default requires paid
 - `POST /api/v1/orders/{id}/cancel/` — restores stock once when deducted
+- `POST /api/v1/payments/orders/{id}/checkout/` — create PayPal Sandbox checkout
+- `POST /api/v1/payments/orders/{id}/capture/` — capture after buyer approval (also runs automatically on the `CHECKOUT.ORDER.APPROVED` webhook)
+- `POST /api/v1/payments/orders/{id}/refund/` — body `{amount?, note_to_payer?}`; omit `amount` for a full refund; returns the order
+- `POST /api/v1/payments/orders/{id}/invoice/` — body `{recipient_email?}`; with an email the buyer is emailed by Orbiz (`PAYPAL_INVOICE_DELIVERY=orbiz`, the PayPal invoice is created link-only) or by PayPal (`paypal`); blank email = link-only; returns the order
+- `POST /api/v1/payments/orders/{id}/email-link/` — body `{recipient_email?, kind?: "request"|"reminder"}`; emails the open invoice or pay-now link through Orbiz SMTP (blank email = the customer's); 409 `email_cooldown` if the same address was just emailed; returns the order (`paypal_payment_request` shows the email's queued/sent/failed status)
+- `POST /api/v1/payments/orders/{id}/invoice/cancel/` — cancel the open PayPal invoice; returns the order
+- `GET /api/v1/payments/orders/{id}/` — latest checkout + configured/sandbox flags
+- `POST /api/v1/payments/webhooks/paypal/` — verified webhook (no JWT; signature required)
 
-Tags in the schema: `auth`, `stores`, `products`, `customers`, `orders`.
+Tags in the schema: `auth`, `stores`, `products`, `customers`, `orders`, `payments`.
 
 Re-export from `/api/schema/` after endpoint changes so Postman stays current.

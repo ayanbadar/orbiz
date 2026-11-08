@@ -9,9 +9,9 @@ import {
 } from "@/features/orders/utils/order-status";
 import {
   dateRangeModel,
-  numberRangeModel,
+  numberRangeModelFromBounds,
   readDateRange,
-  readNumberRange,
+  readNumberBounds,
   readTextFilterValue,
   textContainsModel,
   textEqualsModel,
@@ -27,11 +27,6 @@ export type OrderGridFilterState = {
   created_after: string | null;
   created_before: string | null;
 };
-
-function formatBound(value: number | null): string | null {
-  if (value == null || Number.isNaN(value)) return null;
-  return String(value);
-}
 
 /** Build AG Grid filter model from URL/query state (chips + column filters). */
 export function orderFiltersToFilterModel(
@@ -56,11 +51,9 @@ export function orderFiltersToFilterModel(
     );
   }
 
-  const totalMin = filters.total_min != null ? Number(filters.total_min) : null;
-  const totalMax = filters.total_max != null ? Number(filters.total_max) : null;
-  const totalModel = numberRangeModel(
-    totalMin != null && !Number.isNaN(totalMin) ? totalMin : null,
-    totalMax != null && !Number.isNaN(totalMax) ? totalMax : null,
+  const totalModel = numberRangeModelFromBounds(
+    filters.total_min,
+    filters.total_max,
   );
   if (totalModel) {
     model.total = totalModel;
@@ -88,7 +81,7 @@ export function orderFilterModelToPatch(
   const customer = readTextFilterValue(model["customer__name"]);
   const fulfilmentRaw = readTextFilterValue(model.fulfilment_status);
   const paymentRaw = readTextFilterValue(model.payment_status);
-  const totalRange = readNumberRange(model.total);
+  const total = readNumberBounds(model.total);
   const createdRange = readDateRange(model.created_at);
 
   return {
@@ -98,8 +91,8 @@ export function orderFilterModelToPatch(
       ? parseFulfilmentStatus(fulfilmentRaw)
       : null,
     payment_status: paymentRaw ? parsePaymentStatus(paymentRaw) : null,
-    total_min: totalRange ? formatBound(totalRange.min) : null,
-    total_max: totalRange ? formatBound(totalRange.max) : null,
+    total_min: total.min,
+    total_max: total.max,
     created_after: createdRange?.after ?? null,
     created_before: createdRange?.before ?? null,
   };

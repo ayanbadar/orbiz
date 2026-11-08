@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormattedTime } from "@/components/formatted-time";
@@ -22,6 +22,8 @@ import {
 import { OrderStatusPair } from "@/features/orders/components/order-status-pair";
 import { OrderTimeline } from "@/features/orders/components/order-timeline";
 import { Can } from "@/features/auth/components/can";
+import { PaypalSandboxCard } from "@/features/orders/components/paypal-sandbox-card";
+
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -88,7 +90,14 @@ export function OrderDetailPage() {
               <Card className="rounded-[24px] ring-0">
                 <CardHeader>
                   <CardTitle>Customer</CardTitle>
-                  <CardDescription>{order.customer.name}</CardDescription>
+                  <CardDescription>
+                    <Link
+                      to={ROUTES.customers.detail(order.customer.id)}
+                      className="font-semibold text-foreground underline-offset-4 hover:underline"
+                    >
+                      {order.customer.name}
+                    </Link>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm text-muted-foreground">
                   {order.customer.email ? <p>{order.customer.email}</p> : null}
@@ -173,27 +182,7 @@ export function OrderDetailPage() {
               </Card>
             ) : null}
 
-            <Card className="rounded-[24px] bg-foreground text-background ring-0">
-              <CardHeader>
-                <CardTitle className="text-primary">PayPal Sandbox</CardTitle>
-                <CardDescription className="text-background/70">
-                  Real checkout attaches in §2.7. Until then use{" "}
-                  <span className="text-primary">Mark paid (demo)</span> to
-                  unlock fulfilment. Abandon payment leaves the order
-                  unfulfilled without restoring stock.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-[24px] border-primary bg-transparent text-primary"
-                  disabled
-                >
-                  Create PayPal checkout — coming in Payments
-                </Button>
-              </CardContent>
-            </Card>
+            <PaypalSandboxCard order={order} confirm={confirm} />
 
             <section className="space-y-3">
               <h2 className="text-lg font-semibold">Activity</h2>

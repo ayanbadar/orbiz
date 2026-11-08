@@ -5,8 +5,8 @@ import {
   type ProductAvailabilityLabel,
 } from "@/features/products/utils/product-status";
 import {
-  numberRangeModel,
-  readNumberRange,
+  numberRangeModelFromBounds,
+  readNumberBounds,
   readTextFilterValue,
   textContainsModel,
   textEqualsModel,
@@ -24,11 +24,6 @@ export type ProductGridFilterState = {
   in_stock: boolean;
   is_active: boolean | null;
 };
-
-function formatBound(value: number | null): string | null {
-  if (value == null || Number.isNaN(value)) return null;
-  return String(value);
-}
 
 function availabilityFromState(
   filters: ProductGridFilterState,
@@ -98,21 +93,17 @@ export function productFiltersToFilterModel(
     model.sku = textContainsModel(filters.sku);
   }
 
-  const priceMin = filters.price_min != null ? Number(filters.price_min) : null;
-  const priceMax = filters.price_max != null ? Number(filters.price_max) : null;
-  const priceModel = numberRangeModel(
-    priceMin != null && !Number.isNaN(priceMin) ? priceMin : null,
-    priceMax != null && !Number.isNaN(priceMax) ? priceMax : null,
+  const priceModel = numberRangeModelFromBounds(
+    filters.price_min,
+    filters.price_max,
   );
   if (priceModel) {
     model.price = priceModel;
   }
 
-  const stockMin = filters.stock_min != null ? Number(filters.stock_min) : null;
-  const stockMax = filters.stock_max != null ? Number(filters.stock_max) : null;
-  const stockModel = numberRangeModel(
-    stockMin != null && !Number.isNaN(stockMin) ? stockMin : null,
-    stockMax != null && !Number.isNaN(stockMax) ? stockMax : null,
+  const stockModel = numberRangeModelFromBounds(
+    filters.stock_min,
+    filters.stock_max,
   );
   if (stockModel) {
     model.stock_quantity = stockModel;
@@ -137,8 +128,8 @@ export function productFilterModelToPatch(
 ): Partial<ProductGridFilterState> {
   const name = readTextFilterValue(model.name);
   const sku = readTextFilterValue(model.sku);
-  const priceRange = readNumberRange(model.price);
-  const stockRange = readNumberRange(model.stock_quantity);
+  const price = readNumberBounds(model.price);
+  const stock = readNumberBounds(model.stock_quantity);
   const hasStatus = Object.prototype.hasOwnProperty.call(model, "status");
   const statusRaw = hasStatus ? readTextFilterValue(model.status) : null;
   const availability = statusRaw
@@ -158,10 +149,10 @@ export function productFilterModelToPatch(
   return {
     name: name ?? "",
     sku: sku ?? "",
-    price_min: priceRange ? formatBound(priceRange.min) : null,
-    price_max: priceRange ? formatBound(priceRange.max) : null,
-    stock_min: stockRange ? formatBound(stockRange.min) : null,
-    stock_max: stockRange ? formatBound(stockRange.max) : null,
+    price_min: price.min,
+    price_max: price.max,
+    stock_min: stock.min,
+    stock_max: stock.max,
     ...availabilityPatch,
   };
 }

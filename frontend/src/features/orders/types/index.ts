@@ -1,4 +1,10 @@
 import type { Customer } from "@/features/customers/types";
+import type {
+  PaymentCheckout,
+  PaymentInvoice,
+  PaymentRefund,
+  PaymentRequestSummary,
+} from "@/features/payments/types";
 
 export type FulfilmentStatus =
   | "draft"
@@ -9,7 +15,13 @@ export type FulfilmentStatus =
   | "cancelled";
 
 export type PaymentStatus =
-  "unpaid" | "pending" | "paid" | "failed" | "cancelled";
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "partially_refunded"
+  | "refunded";
 
 export type OrderLine = {
   id: number;
@@ -48,6 +60,14 @@ export type Order = {
   cancelled_at: string | null;
   lines: OrderLine[];
   events: OrderEvent[];
+  paypal_checkout?: PaymentCheckout | null;
+  paypal_invoice?: PaymentInvoice | null;
+  paypal_payment_request?: PaymentRequestSummary;
+  paypal_refunds?: PaymentRefund[];
+  paypal_refundable_amount?: string;
+  paypal_currency_supported?: boolean;
+  paypal_configured?: boolean;
+  paypal_sandbox?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -80,6 +100,7 @@ export type OrderListParams = {
   q?: string;
   number?: string;
   customer_name?: string;
+  customer_id?: number;
   fulfilment_status?: FulfilmentStatus;
   payment_status?: PaymentStatus;
   total_min?: string;
@@ -102,6 +123,11 @@ export type OrderCreateRequest = {
   internal_notes?: string;
   source_message?: string;
   lines: OrderLineInput[];
+};
+
+export type OrderConfirmRequest = {
+  /** Email the customer an order confirmation (needs an email on file). */
+  notify_customer?: boolean;
 };
 
 export type OrderUpdateRequest = {

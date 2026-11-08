@@ -36,6 +36,12 @@ const STORE_NAV_ITEMS: NavItem[] = [
     permission: "orders.read",
   },
   {
+    to: ROUTES.customers.root(),
+    label: "Customers",
+    icon: Users,
+    permission: "customers.read",
+  },
+  {
     to: ROUTES.products.root(),
     label: "Products",
     icon: Package,

@@ -1,0 +1,12 @@
+{% autoescape off %}{% if sandbox %}*** PAYPAL SANDBOX TEST - no real money moves ***
+
+{% endif %}Hi {{ customer_name }},
+
+{% if is_reminder %}Reminder: {{ store_name }} is still waiting for your payment of {{ total }}.{% else %}{{ store_name }} is asking for {{ total }} for order {{ order_number }}{% if items_summary %} ({{ items_summary }}){% endif %}.{% endif %}
+
+Pay now on PayPal:
+{{ link }}
+
+This link is for paying right away and may stop working after a while. If it does, ask {{ store_name }} for a new one.
+If you were not expecting this, you can ignore this email.
+{% endautoescape %}

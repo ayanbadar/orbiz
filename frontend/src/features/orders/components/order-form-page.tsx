@@ -19,10 +19,9 @@ import {
   applyFieldErrors,
   getErrorMessage,
 } from "@/features/auth/utils/form-errors";
-import {
-  useCreateCustomer,
-  useCustomers,
-} from "@/features/customers/api/customers.api";
+import { useCustomers } from "@/features/customers/api/customers.api";
+import { AddCustomerDialog } from "@/features/customers/components/add-customer-dialog";
+import type { Customer } from "@/features/customers/types";
 import {
   useCreateOrder,
   useOrder,
@@ -74,8 +73,9 @@ export function OrderFormPage() {
     page_size: PICKER_PAGE_SIZE,
     is_active: true,
   });
-  const createCustomer = useCreateCustomer();
-  const [newCustomerName, setNewCustomerName] = useState("");
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  /** Customer created from the dialog — may not be in the current search page yet. */
+  const [addedCustomer, setAddedCustomer] = useState<Customer | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -92,6 +92,7 @@ export function OrderFormPage() {
     name: "lines",
   });
   const watchedLines = form.watch("lines");
+  const selectedCustomerId = form.watch("customer_id");
 
   const productsById = useMemo(() => {
     const map = new Map<
@@ -187,21 +188,72 @@ export function OrderFormPage() {
     }
   });
 
-  const onCreateCustomer = async () => {
-    const name = newCustomerName.trim();
-    if (!name) {
-      toast.error("Enter a customer name.");
-      return;
-    }
-    try {
-      const customer = await createCustomer.mutateAsync({ name });
-      form.setValue("customer_id", customer.id, { shouldValidate: true });
-      setNewCustomerName("");
-      toast.success("Customer added.");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Could not create customer."));
-    }
+  const onCustomerCreated = (customer: Customer) => {
+    setAddedCustomer(customer);
+    form.setValue("customer_id", customer.id, { shouldValidate: true });
   };
+
+  const customerResults = customersQuery.data?.results ?? [];
+  const productResults = productsQuery.data?.results ?? [];
+  const customerCount = customersQuery.data?.count ?? customerResults.length;
+  const productCount = productsQuery.data?.count ?? productResults.length;
+
+  // Hooks stay above the early returns below (rules of hooks).
+  const customerOptions = useMemo(() => {
+    const results: Customer[] = customersQuery.data?.results ?? [];
+    // The picker labels its value from `options`; keep the selected customer in
+    // them even when the current search page does not include it (just created
+    // in the dialog, or an edited order's customer beyond the first page).
+    const pinned = [addedCustomer, existing.data?.customer].find(
+      (customer): customer is Customer =>
+        customer != null &&
+        customer.id === selectedCustomerId &&
+        !results.some((row) => row.id === customer.id),
+    );
+    const rows = pinned ? [pinned, ...results] : results;
+    const nameCounts = new Map<string, number>();
+    for (const customer of rows) {
+      const key = customer.name.trim().toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+    return rows.map((customer) => {
+      const duplicate =
+        (nameCounts.get(customer.name.trim().toLowerCase()) ?? 0) > 1;
+      const label =
+        duplicate && customer.email
+          ? `${customer.name} · ${customer.email}`
+          : customer.name;
+      return {
+        value: String(customer.id),
+        label,
+        primary: customer.name,
+        secondary: customer.email || undefined,
+        keywords: [customer.name, customer.email, customer.phone]
+          .filter(Boolean)
+          .join(" "),
+      };
+    });
+  }, [customersQuery.data, addedCustomer, existing.data, selectedCustomerId]);
+
+  const productOptions = useMemo(() => {
+    const results = productsQuery.data?.results ?? [];
+    const nameCounts = new Map<string, number>();
+    for (const product of results) {
+      const key = product.name.trim().toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+    return results.map((product) => {
+      const duplicate =
+        (nameCounts.get(product.name.trim().toLowerCase()) ?? 0) > 1;
+      return {
+        value: String(product.id),
+        label: duplicate ? `${product.name} · ${product.sku}` : product.name,
+        primary: product.name,
+        secondary: `${product.sku} · stock ${product.stock_quantity}`,
+        keywords: `${product.name} ${product.sku}`,
+      };
+    });
+  }, [productsQuery.data]);
 
   if (hasIdParam && !isEdit) {
     return (
@@ -237,55 +289,6 @@ export function OrderFormPage() {
       </QueryState>
     );
   }
-
-  const customerResults = customersQuery.data?.results ?? [];
-  const productResults = productsQuery.data?.results ?? [];
-  const customerCount = customersQuery.data?.count ?? customerResults.length;
-  const productCount = productsQuery.data?.count ?? productResults.length;
-
-  const customerOptions = useMemo(() => {
-    const nameCounts = new Map<string, number>();
-    for (const customer of customerResults) {
-      const key = customer.name.trim().toLowerCase();
-      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
-    }
-    return customerResults.map((customer) => {
-      const duplicate =
-        (nameCounts.get(customer.name.trim().toLowerCase()) ?? 0) > 1;
-      const label =
-        duplicate && customer.email
-          ? `${customer.name} · ${customer.email}`
-          : customer.name;
-      return {
-        value: String(customer.id),
-        label,
-        primary: customer.name,
-        secondary: customer.email || undefined,
-        keywords: [customer.name, customer.email, customer.phone]
-          .filter(Boolean)
-          .join(" "),
-      };
-    });
-  }, [customerResults]);
-
-  const productOptions = useMemo(() => {
-    const nameCounts = new Map<string, number>();
-    for (const product of productResults) {
-      const key = product.name.trim().toLowerCase();
-      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
-    }
-    return productResults.map((product) => {
-      const duplicate =
-        (nameCounts.get(product.name.trim().toLowerCase()) ?? 0) > 1;
-      return {
-        value: String(product.id),
-        label: duplicate ? `${product.name} · ${product.sku}` : product.name,
-        primary: product.name,
-        secondary: `${product.sku} · stock ${product.stock_quantity}`,
-        keywords: `${product.name} ${product.sku}`,
-      };
-    });
-  }, [productResults]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -329,32 +332,21 @@ export function OrderFormPage() {
           }
         />
 
-        <div className="flex flex-wrap items-end gap-3">
-          <FormField
-            id="new_customer"
-            label="Or create customer"
-            className="flex-1"
-          >
-            <Input
-              className={inputClassName}
-              value={newCustomerName}
-              onChange={(e) => setNewCustomerName(e.target.value)}
-              placeholder="Customer name"
-            />
-          </FormField>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            New buyer? Add them with an email so PayPal payment links can reach
+            them.
+          </p>
           <Button
             type="button"
             variant="outline"
             className="h-12 rounded-[24px]"
-            onClick={() => {
-              void onCreateCustomer();
-            }}
-            disabled={createCustomer.isPending}
+            onClick={() => setAddCustomerOpen(true)}
           >
+            <Plus aria-hidden />
             Add customer
           </Button>
         </div>
-
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">Line items</h2>
@@ -514,6 +506,14 @@ export function OrderFormPage() {
           </Button>
         </div>
       </form>
+
+      {/* Outside the order <form>: portal events still bubble through the React
+          tree, so a nested submit would also save the draft. */}
+      <AddCustomerDialog
+        open={addCustomerOpen}
+        onOpenChange={setAddCustomerOpen}
+        onCreated={onCustomerCreated}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type {
   FulfilmentStatus,
   Order,
+  OrderConfirmRequest,
   OrderCreateRequest,
   OrderListItem,
   OrderListParams,
@@ -20,6 +21,7 @@ export class OrderService {
         q: params.q || undefined,
         number: params.number || undefined,
         customer_name: params.customer_name || undefined,
+        customer_id: params.customer_id,
         fulfilment_status: params.fulfilment_status || undefined,
         payment_status: params.payment_status || undefined,
         total_min: params.total_min || undefined,
@@ -49,8 +51,11 @@ export class OrderService {
     return response.data;
   }
 
-  static async confirm(id: number): Promise<Order> {
-    const response = await api.post<Order>(`${ROOT}/${id}/confirm/`, {});
+  static async confirm(
+    id: number,
+    body: OrderConfirmRequest = {},
+  ): Promise<Order> {
+    const response = await api.post<Order>(`${ROOT}/${id}/confirm/`, body);
     return response.data;
   }
 

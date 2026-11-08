@@ -17,6 +17,9 @@ import {
 import { SignInPage } from "@/features/auth/components/sign-in-page";
 import { SignUpPage } from "@/features/auth/components/sign-up-page";
 import { BillingPage } from "@/features/billing/components/billing-page";
+import { CustomerDetailPage } from "@/features/customers/components/customer-detail-page";
+import { CustomerFormPage } from "@/features/customers/components/customer-form-page";
+import { CustomersPage } from "@/features/customers/components/customers-page";
 import { AcceptInvitePage } from "@/features/invitations/components/accept-invite-page";
 import { DemoPage } from "@/features/demo/components/demo-page";
 import { OrderDetailPage } from "@/features/orders/components/order-detail-page";
@@ -24,6 +27,7 @@ import { OrderFormPage } from "@/features/orders/components/order-form-page";
 import { OrdersPage } from "@/features/orders/components/orders-page";
 import { ProductDetailPage } from "@/features/products/components/product-detail-page";
 import { ProductFormPage } from "@/features/products/components/product-form-page";
+import { PaymentReturnPage } from "@/features/payments/components/payment-return-page";
 import { ProductsPage } from "@/features/products/components/products-page";
 import { AdminStoresPage } from "@/features/stores/components/admin-stores-page";
 import { StoreOnboardingPage } from "@/features/stores/components/store-onboarding-page";
@@ -66,6 +70,7 @@ export function App() {
       />
       <Route path={ROUTES.resetPassword()} element={<ResetPasswordPage />} />
       <Route path={ROUTES.acceptInvite()} element={<AcceptInvitePage />} />
+      <Route path={ROUTES.pay.return()} element={<PaymentReturnPage />} />
 
       <Route element={<ProtectedLayout />}>
         <Route path={ROUTES.account()} element={<AccountPage />} />
@@ -115,6 +120,26 @@ export function App() {
           </Route>
           <Route element={<RequireStoreAdmin />}>
             <Route path={ROUTES.team.roles()} element={<RolesPage />} />
+          </Route>
+
+          <Route element={<RequirePermission permission="customers.read" />}>
+            <Route path={ROUTES.customers.root()} element={<CustomersPage />} />
+            <Route
+              path={ROUTES.customers.detail(":id")}
+              element={<CustomerDetailPage />}
+            />
+          </Route>
+          <Route element={<RequirePermission permission="customers.create" />}>
+            <Route
+              path={ROUTES.customers.new()}
+              element={<CustomerFormPage />}
+            />
+          </Route>
+          <Route element={<RequirePermission permission="customers.update" />}>
+            <Route
+              path={ROUTES.customers.edit(":id")}
+              element={<CustomerFormPage />}
+            />
           </Route>
 
           <Route path={ROUTES.demo.root()} element={<DemoPage />} />

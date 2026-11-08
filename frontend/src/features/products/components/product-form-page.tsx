@@ -223,7 +223,7 @@ export function ProductFormPage() {
         <Button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="h-12 rounded-[24px] px-6 text-base font-semibold"
+          size="cta"
         >
           {form.formState.isSubmitting ? "Saving…" : "Save product"}
         </Button>

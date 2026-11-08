@@ -1,5 +1,4 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
 import type { FilterModel } from "ag-grid-community";
 import {
   parseAsBoolean,
@@ -10,11 +9,10 @@ import {
 } from "nuqs";
 
 import { FilterChip } from "@/components/filter-chip";
-import { DEFAULT_PAGE_SIZE, getPageCount } from "@/components/pagination";
-import { QueryState } from "@/components/query-state";
+import { DEFAULT_PAGE_SIZE } from "@/components/pagination";
 import { ResourceListChrome } from "@/components/resource-list-chrome";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
+import { getErrorMessage } from "@/features/auth/utils/form-errors";
 import { useProducts } from "@/features/products/api/products.api";
 import { ProductDialog } from "@/features/products/components/product-dialog";
 import { Channel3SearchDialog } from "@/features/products/components/channel3-search-dialog";
@@ -24,9 +22,9 @@ import {
   productFilterModelToPatch,
   productFiltersToFilterModel,
 } from "@/features/products/utils/product-grid-filters";
-import { useCurrentStore } from "@/features/stores/api/stores.api";
-import { ApiError } from "@/lib/api";
 import { Can } from "@/features/auth/components/can";
+import { useStoreGate } from "@/features/stores/components/use-store-gate";
+import { getResourceListState } from "@/lib/resource-list-state";
 
 const PRODUCT_ORDERINGS = [
   "name",
@@ -40,7 +38,8 @@ const PRODUCT_ORDERINGS = [
 ] as const satisfies readonly ProductListOrdering[];
 
 export function ProductsPage() {
-  const storeQuery = useCurrentStore();
+  const storeGate = useStoreGate();
+  const { store, storeReady } = storeGate;
   const [channel3Open, setChannel3Open] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [filters, setFilters] = useQueryStates({
@@ -62,12 +61,6 @@ export function ProductsPage() {
   const deferredQ = useDeferredValue(filters.q);
   const deferredName = useDeferredValue(filters.name);
   const deferredSku = useDeferredValue(filters.sku);
-
-  const storeReady = Boolean(storeQuery.data);
-  const storeMissing =
-    storeQuery.isError &&
-    storeQuery.error instanceof ApiError &&
-    storeQuery.error.status === 404;
 
   const filterModel = useMemo(
     () =>
@@ -117,41 +110,18 @@ export function ProductsPage() {
     { enabled: storeReady },
   );
 
-  if (storeMissing) {
-    return <Navigate to={ROUTES.stores.onboarding()} replace />;
+  if (storeGate.gate) {
+    return storeGate.gate;
   }
 
-  if (storeQuery.isError) {
-    return (
-      <QueryState
-        isLoading={false}
-        isError
-        errorMessage={
-          storeQuery.error instanceof Error
-            ? storeQuery.error.message
-            : "Failed to load your store workspace."
-        }
-        onRetry={() => {
-          void storeQuery.refetch();
-        }}
-      >
-        {null}
-      </QueryState>
-    );
-  }
-
-  const rows = productsQuery.data?.results ?? [];
-  const totalCount = productsQuery.data?.count ?? 0;
-  const showPagination = getPageCount(totalCount, DEFAULT_PAGE_SIZE) > 1;
-  const showInitialLoading =
-    (storeQuery.isLoading && !storeQuery.data) ||
-    (productsQuery.isLoading && !productsQuery.data);
-  const isRefetching = productsQuery.isFetching && !showInitialLoading;
-  const showEmpty =
-    !showInitialLoading &&
-    storeReady &&
-    rows.length === 0 &&
-    !productsQuery.isPlaceholderData;
+  const {
+    rows,
+    totalCount,
+    showPagination,
+    showInitialLoading,
+    isRefetching,
+    showEmpty,
+  } = getResourceListState(productsQuery, storeGate);
   const hasActiveFilters = Boolean(
     filters.q ||
     filters.name ||
@@ -206,8 +176,8 @@ export function ProductsPage() {
       <ResourceListChrome
         title="Products"
         subtitle={
-          storeQuery.data
-            ? `${storeQuery.data.name} · ${storeQuery.data.currency}`
+          store
+            ? `${store.name} · ${store.currency}`
             : "Catalog and stock for your store workspace."
         }
         actions={
@@ -216,7 +186,7 @@ export function ProductsPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                size="cta"
                 onClick={() => setChannel3Open(true)}
                 disabled={!storeReady}
               >
@@ -224,7 +194,7 @@ export function ProductsPage() {
               </Button>
               <Button
                 type="button"
-                className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                size="cta"
                 onClick={() => setCreateOpen(true)}
               >
                 Add product
@@ -297,11 +267,10 @@ export function ProductsPage() {
         }
         isLoading={showInitialLoading}
         isError={productsQuery.isError}
-        errorMessage={
-          productsQuery.error instanceof Error
-            ? productsQuery.error.message
-            : "Failed to load products."
-        }
+        errorMessage={getErrorMessage(
+          productsQuery.error,
+          "Failed to load products.",
+        )}
         onRetry={() => {
           void productsQuery.refetch();
         }}
@@ -329,14 +298,14 @@ export function ProductsPage() {
                     <Button
                       type="button"
                       variant="secondary"
-                      className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                      size="cta"
                       onClick={() => setChannel3Open(true)}
                     >
                       Search Channel3
                     </Button>
                     <Button
                       type="button"
-                      className="h-12 rounded-[24px] px-6 text-base font-semibold"
+                      size="cta"
                       onClick={() => setCreateOpen(true)}
                     >
                       Add product
