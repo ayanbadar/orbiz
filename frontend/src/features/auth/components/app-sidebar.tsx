@@ -4,6 +4,7 @@ import {
   Package,
   ShieldCheck,
   Store as StoreIcon,
+  Sparkles,
   UserRound,
   Users,
   X,
@@ -65,6 +66,12 @@ const STORE_NAV_ITEMS: NavItem[] = [
     label: "Billing",
     icon: CreditCard,
     storeAdminOnly: true,
+  },
+  {
+    to: ROUTES.assistant.root(),
+    label: "Orbiz AI",
+    icon: Sparkles,
+    permission: "assistant.read",
   },
 ];
 

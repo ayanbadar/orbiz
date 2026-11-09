@@ -31,7 +31,8 @@ class StoreApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["status"], "pending_payment")
         self.assertTrue(response.data["is_store_admin"])
-        self.assertEqual(len(response.data["permissions"]), 16)
+        # 5 resources (products, orders, customers, users, assistant) × 4 actions each.
+        self.assertEqual(len(response.data["permissions"]), 20)
 
         me = self.client.get("/api/v1/stores/me/")
         self.assertEqual(me.data["id"], response.data["id"])

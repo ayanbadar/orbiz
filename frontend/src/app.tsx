@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import { ROUTES } from "@/constants/routes";
+import { AssistantPage } from "@/features/assistant/components/assistant-page";
 import { AccountPage } from "@/features/auth/components/account-page";
 import { AdminUsersPage } from "@/features/auth/components/admin-users-page";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
@@ -140,6 +141,10 @@ export function App() {
               path={ROUTES.customers.edit(":id")}
               element={<CustomerFormPage />}
             />
+          </Route>
+
+          <Route element={<RequirePermission permission="assistant.read" />}>
+            <Route path={ROUTES.assistant.root()} element={<AssistantPage />} />
           </Route>
 
           <Route path={ROUTES.demo.root()} element={<DemoPage />} />

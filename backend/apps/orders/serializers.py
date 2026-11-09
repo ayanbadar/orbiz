@@ -39,6 +39,7 @@ class OrderEventSerializer(serializers.ModelSerializer):
             "from_value",
             "to_value",
             "message",
+            "origin",
             "actor",
             "created_at",
         ]

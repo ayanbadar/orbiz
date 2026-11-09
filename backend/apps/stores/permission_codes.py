@@ -11,6 +11,7 @@ RESOURCES: dict[str, str] = {
     "orders": "Orders",
     "customers": "Customers",
     "users": "Team members",
+    "assistant": "Orbiz AI",
 }
 
 ACTIONS: dict[str, str] = {

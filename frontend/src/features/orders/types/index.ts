@@ -39,6 +39,7 @@ export type OrderEvent = {
   from_value: string;
   to_value: string;
   message: string;
+  origin: "seller" | "assistant";
   actor: number | null;
   created_at: string;
 };

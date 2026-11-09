@@ -12,6 +12,7 @@ import { isPaymentEmailInFlight } from "@/features/orders/utils/paypal-order";
 import { PRODUCT_QUERY_KEYS } from "@/features/products/api/products.keys";
 import type {
   FulfilmentStatus,
+  Order,
   OrderConfirmRequest,
   OrderCreateRequest,
   OrderListParams,
@@ -39,11 +40,12 @@ export function useOrders(
   });
 }
 
-export function useOrder(id: number) {
+export function useOrder(id: number, options?: { initialData?: Order }) {
   return useQuery({
     queryKey: ORDER_QUERY_KEYS.detail(id),
     queryFn: () => OrderService.get(id),
     enabled: Number.isFinite(id) && id > 0,
+    initialData: options?.initialData,
     // The email goes out on a worker after the request returns; follow it to sent/failed.
     refetchInterval: (query) =>
       isPaymentEmailInFlight(query.state.data) ? 2000 : false,
