@@ -35,6 +35,7 @@ import {
 import { ProductImage } from "@/features/products/components/product-image";
 import { ProductAvailabilityBadge } from "@/features/products/components/product-availability-badge";
 import { getFulfilmentLabel } from "@/features/orders/utils/order-status";
+import { Can } from "@/features/auth/components/can";
 
 const adjustSchema = z.object({
   delta: z
@@ -147,38 +148,40 @@ export function ProductDetailPage() {
                   ) : null}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  asChild
-                  variant="secondary"
-                  size="cta"
-                >
-                  <Link to={ROUTES.products.edit(product.id)}>Edit</Link>
-                </Button>
-                {product.is_active ? (
+              <Can permission="products.update">
+                <div className="flex flex-wrap gap-2">
                   <Button
-                    type="button"
-                    variant="outline"
+                    asChild
+                    variant="secondary"
                     size="cta"
-                    disabled={deactivateProduct.isPending}
-                    onClick={() => void onDeactivate()}
                   >
-                    {deactivateProduct.isPending
-                      ? "Deactivating…"
-                      : "Deactivate"}
+                    <Link to={ROUTES.products.edit(product.id)}>Edit</Link>
                   </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="cta"
-                    disabled={activateProduct.isPending}
-                    onClick={() => void onActivate()}
-                  >
-                    {activateProduct.isPending ? "Activating…" : "Activate"}
-                  </Button>
-                )}
-              </div>
+                  {product.is_active ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="cta"
+                      disabled={deactivateProduct.isPending}
+                      onClick={() => void onDeactivate()}
+                    >
+                      {deactivateProduct.isPending
+                        ? "Deactivating…"
+                        : "Deactivate"}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="cta"
+                      disabled={activateProduct.isPending}
+                      onClick={() => void onActivate()}
+                    >
+                      {activateProduct.isPending ? "Activating…" : "Activate"}
+                    </Button>
+                  )}
+                </div>
+              </Can>
             </header>
 
             <div className="grid gap-3 sm:grid-cols-3">
@@ -200,48 +203,50 @@ export function ProductDetailPage() {
               </Card>
             </div>
 
-            <Card className="max-w-md rounded-[24px] ring-0">
-              <CardHeader>
-                <CardTitle>Adjust stock</CardTitle>
-                <CardDescription>
-                  Positive adds inventory; negative removes it. Stock cannot go
-                  below zero.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={onAdjust} className="space-y-3">
-                  <FormField
-                    id="adjust-delta"
-                    label="Delta"
-                    error={form.formState.errors.delta?.message}
-                  >
-                    <Input
-                      type="number"
-                      className={inputClassName}
-                      {...form.register("delta", { valueAsNumber: true })}
-                    />
-                  </FormField>
-                  <FormField
-                    id="adjust-reason"
-                    label="Reason"
-                    error={form.formState.errors.reason?.message}
-                  >
-                    <Input
-                      className={inputClassName}
-                      placeholder="e.g. Received shipment"
-                      {...form.register("reason")}
-                    />
-                  </FormField>
-                  <Button
-                    type="submit"
-                    disabled={adjustStock.isPending}
-                    size="cta"
-                  >
-                    {adjustStock.isPending ? "Saving…" : "Apply adjustment"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <Can permission="products.update">
+              <Card className="max-w-md rounded-[24px] ring-0">
+                <CardHeader>
+                  <CardTitle>Adjust stock</CardTitle>
+                  <CardDescription>
+                    Positive adds inventory; negative removes it. Stock cannot
+                    go below zero.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={onAdjust} className="space-y-3">
+                    <FormField
+                      id="adjust-delta"
+                      label="Delta"
+                      error={form.formState.errors.delta?.message}
+                    >
+                      <Input
+                        type="number"
+                        className={inputClassName}
+                        {...form.register("delta", { valueAsNumber: true })}
+                      />
+                    </FormField>
+                    <FormField
+                      id="adjust-reason"
+                      label="Reason"
+                      error={form.formState.errors.reason?.message}
+                    >
+                      <Input
+                        className={inputClassName}
+                        placeholder="e.g. Received shipment"
+                        {...form.register("reason")}
+                      />
+                    </FormField>
+                    <Button
+                      type="submit"
+                      disabled={adjustStock.isPending}
+                      size="cta"
+                    >
+                      {adjustStock.isPending ? "Saving…" : "Apply adjustment"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </Can>
 
             <section className="space-y-3">
               <h2 className="text-lg font-semibold">Recent adjustments</h2>
@@ -300,7 +305,9 @@ export function ProductDetailPage() {
                           to={ROUTES.orders.detail(row.order_id)}
                           className="flex flex-wrap items-center justify-between gap-2 rounded-[24px] bg-card px-4 py-3 text-sm ring-1 ring-border transition-colors hover:bg-muted/60"
                         >
-                          <span className="font-semibold">{row.order_number}</span>
+                          <span className="font-semibold">
+                            {row.order_number}
+                          </span>
                           <span className="text-muted-foreground">
                             qty {row.quantity} ·{" "}
                             {getFulfilmentLabel(

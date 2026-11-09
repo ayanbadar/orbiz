@@ -55,7 +55,7 @@ class UserAdmin(DjangoUserAdmin):
     add_form = UserCreationForm
     model = User
     ordering = ("email",)
-    list_display = ("email", "first_name", "last_name", "is_staff", "is_active")
+    list_display = ("email", "first_name", "last_name", "is_superuser", "is_active")
     list_filter = ("is_staff", "is_active", "is_superuser")
     search_fields = ("email", "first_name", "last_name")
     filter_horizontal = ("groups", "user_permissions")

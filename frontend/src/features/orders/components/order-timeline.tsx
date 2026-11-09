@@ -3,9 +3,7 @@ import type { OrderEvent } from "@/features/orders/types";
 
 export function OrderTimeline({ events }: { events: OrderEvent[] }) {
   if (events.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No activity yet.</p>
-    );
+    return <p className="text-sm text-muted-foreground">No activity yet.</p>;
   }
 
   return (

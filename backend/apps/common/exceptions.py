@@ -32,3 +32,13 @@ class ServiceUnavailableError(ApplicationError):
 class BadGatewayError(ApplicationError):
     status_code = 502
     default_code = "bad_gateway"
+
+
+class ForbiddenError(ApplicationError):
+    status_code = 403
+    default_code = "permission_denied"
+
+
+class PaymentRequiredError(ApplicationError):
+    status_code = 402
+    default_code = "payment_required"

@@ -23,7 +23,6 @@ import {
   applyFieldErrors,
   getErrorMessage,
 } from "@/features/auth/utils/form-errors";
-import { WorkspaceCard } from "@/features/stores/components/workspace-card";
 
 const profileSchema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name"),
@@ -113,7 +112,6 @@ export function AccountPage() {
         </p>
       </div>
 
-      <WorkspaceCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-[24px] bg-card py-0 ring-0">

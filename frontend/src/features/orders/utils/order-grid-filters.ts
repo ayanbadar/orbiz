@@ -1,9 +1,6 @@
 import type { FilterModel } from "ag-grid-community";
 
-import type {
-  FulfilmentStatus,
-  PaymentStatus,
-} from "@/features/orders/types";
+import type { FulfilmentStatus, PaymentStatus } from "@/features/orders/types";
 import {
   getFulfilmentLabel,
   getPaymentLabel,

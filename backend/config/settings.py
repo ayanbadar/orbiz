@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.notifications",
     "apps.stores",
+    "apps.invitations",
+    "apps.billing",
     "apps.products",
     "apps.customers",
     "apps.orders",
@@ -253,3 +255,9 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BEAT_SCHEDULE = {
+    "expire-subscriptions-daily": {
+        "task": "apps.billing.tasks.expire_subscriptions_task",
+        "schedule": 60 * 60 * 24,
+    },
+}

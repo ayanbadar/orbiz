@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from apps.accounts.models import User
 from apps.products.channel3 import Channel3Error, Channel3NotConfigured
 from apps.products.models import InventoryAdjustment, Product
-from apps.stores.services import create_store_for_user
+from apps.common.testing import create_active_store
 
 PASSWORD = "Orb1z-pass"
 
@@ -24,14 +24,14 @@ class ProductApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="seller@example.com", password=PASSWORD, first_name="S")
         self.other = User.objects.create_user(email="other@example.com", password=PASSWORD, first_name="O")
-        self.store = create_store_for_user(
+        self.store = create_active_store(
             user=self.user,
             name="Demo Store",
             currency="USD",
             timezone="UTC",
             business_type="social",
         )
-        self.other_store = create_store_for_user(
+        self.other_store = create_active_store(
             user=self.other,
             name="Other Store",
             currency="USD",

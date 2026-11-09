@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 
 from apps.accounts.models import User
 from apps.products.models import Product
-from apps.stores.services import create_store_for_user
+from apps.common.testing import create_active_store
 
 PASSWORD = "Orb1z-pass"
 
@@ -23,7 +23,7 @@ class SeedDemoProductsTests(TestCase):
             password=PASSWORD,
             first_name="Seed",
         )
-        self.store = create_store_for_user(
+        self.store = create_active_store(
             user=self.user,
             name="Seed Store",
             currency="USD",

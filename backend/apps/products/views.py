@@ -40,7 +40,7 @@ PRODUCT_ORDERINGS = frozenset(
 
 
 class ProductStoreMixin(StoreScopedMixin):
-    missing_store_message = "Create a store workspace before managing products."
+    permission_resource = "products"
 
     def get_queryset(self):
         return Product.objects.filter(store=self.store)
@@ -137,6 +137,7 @@ class ProductDetailView(
 
 
 class AdjustStockView(ProductStoreMixin, APIView):
+    permission_action = "update"
     throttle_scope = "writes"
 
     @extend_schema(
@@ -157,6 +158,7 @@ class AdjustStockView(ProductStoreMixin, APIView):
 
 
 class CheckStockView(ProductStoreMixin, APIView):
+    permission_action = "read"
     """Product-side stock check for Orders (§2.4) to call before committing a line."""
 
     @extend_schema(
@@ -191,6 +193,7 @@ class ProductAdjustmentsView(ProductStoreMixin, generics.ListAPIView):
 
 
 class Channel3SearchView(ProductStoreMixin, APIView):
+    permission_action = "read"
     throttle_scope = "channel3"
 
     @extend_schema(
@@ -207,6 +210,7 @@ class Channel3SearchView(ProductStoreMixin, APIView):
 
 
 class ImportFromChannel3View(ProductStoreMixin, APIView):
+    permission_action = "create"
     throttle_scope = "writes"
 
     @extend_schema(

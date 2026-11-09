@@ -1,6 +1,9 @@
 import {
   ClipboardList,
+  CreditCard,
   Package,
+  ShieldCheck,
+  Store as StoreIcon,
   Sparkles,
   UserRound,
   Users,
@@ -13,7 +16,7 @@ import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
 import { SHELL_TOP_BAR_CLASS } from "@/features/auth/components/shell-layout";
-import { useCurrentStore } from "@/features/stores/api/stores.api";
+import { usePermissions } from "@/features/auth/hooks/use-permissions";
 import { cn } from "cn";
 
 type NavItem = {
@@ -21,24 +24,54 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /** Hidden unless the user holds this permission. */
+  permission?: string;
+  storeAdminOnly?: boolean;
 };
 
-const NAV_ITEMS: NavItem[] = [
+const STORE_NAV_ITEMS: NavItem[] = [
   {
     to: ROUTES.orders.root(),
     label: "Orders",
     icon: ClipboardList,
+    permission: "orders.read",
   },
   {
     to: ROUTES.customers.root(),
     label: "Customers",
     icon: Users,
+    permission: "customers.read",
   },
   {
     to: ROUTES.products.root(),
     label: "Products",
     icon: Package,
+    permission: "products.read",
   },
+  {
+    to: ROUTES.team.users(),
+    label: "Team",
+    icon: Users,
+    permission: "users.read",
+    end: true,
+  },
+  {
+    to: ROUTES.team.roles(),
+    label: "Roles",
+    icon: ShieldCheck,
+    storeAdminOnly: true,
+  },
+  {
+    to: ROUTES.billing(),
+    label: "Billing",
+    icon: CreditCard,
+    storeAdminOnly: true,
+  },
+];
+
+const PLATFORM_NAV_ITEMS: NavItem[] = [
+  { to: ROUTES.admin.stores(), label: "Stores", icon: StoreIcon },
+  { to: ROUTES.admin.users(), label: "All users", icon: Users },
   {
     to: ROUTES.assistant.root(),
     label: "Orbiz AI",
@@ -96,8 +129,13 @@ export function AppSidebar({
   onNavigate,
   className,
 }: AppSidebarProps) {
-  const storeQuery = useCurrentStore();
-  const store = storeQuery.data;
+  const { store, can, isStoreAdmin, isPlatformAdmin } = usePermissions();
+  const navItems = isPlatformAdmin
+    ? PLATFORM_NAV_ITEMS
+    : STORE_NAV_ITEMS.filter((item) => {
+        if (item.storeAdminOnly) return isStoreAdmin;
+        return item.permission ? can(item.permission) : true;
+      });
 
   return (
     <aside
@@ -109,7 +147,7 @@ export function AppSidebar({
     >
       <div className={cn(SHELL_TOP_BAR_CLASS, "justify-between gap-2 px-4")}>
         <NavLink
-          to={ROUTES.products.root()}
+          to={ROUTES.root()}
           className="inline-flex"
           onClick={onNavigate}
         >
@@ -129,7 +167,14 @@ export function AppSidebar({
         ) : null}
       </div>
 
-      {store ? (
+      {isPlatformAdmin ? (
+        <div className="space-y-0.5 px-4 pb-3">
+          <p className="text-sm font-semibold text-foreground">
+            Platform admin
+          </p>
+          <p className="text-xs text-muted-foreground">All stores</p>
+        </div>
+      ) : store ? (
         <div className="space-y-0.5 px-4 pb-3">
           <p
             className="truncate text-sm font-semibold text-foreground"
@@ -138,13 +183,16 @@ export function AppSidebar({
             {store.name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {store.currency}
+            {store.is_store_admin
+              ? "Store admin"
+              : (store.role_name ?? "Staff")}{" "}
+            · {store.currency}
           </p>
         </div>
       ) : null}
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-3">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <SidebarNavLink key={item.to} item={item} onNavigate={onNavigate} />
         ))}
       </nav>

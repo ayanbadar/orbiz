@@ -33,9 +33,7 @@ export function getPaymentLabel(status: PaymentStatus): string {
 }
 
 /** Match status code or display label (case-insensitive). */
-export function parseFulfilmentStatus(
-  raw: string,
-): FulfilmentStatus | null {
+export function parseFulfilmentStatus(raw: string): FulfilmentStatus | null {
   const needle = raw.trim().toLowerCase();
   if (!needle) return null;
   const byCode = FULFILMENT_STATUSES.find((status) => status === needle);

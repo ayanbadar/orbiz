@@ -14,7 +14,7 @@ from apps.orders.services import (
     transition_fulfilment,
 )
 from apps.products.models import Product
-from apps.stores.services import get_default_store
+from apps.stores.services import get_user_store
 
 User = get_user_model()
 
@@ -50,7 +50,7 @@ class Command(BaseCommand):
         except User.DoesNotExist as exc:
             raise CommandError(f"No user with email {email}") from exc
 
-        store = get_default_store(user)
+        store = get_user_store(user)
         if store is None:
             raise CommandError("User has no store. Create a workspace first.")
 

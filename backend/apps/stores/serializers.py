@@ -1,12 +1,17 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from rest_framework import serializers
 
 from apps.stores.models import Store, StoreMembership
-from apps.stores.services import create_store_for_user, set_default_store
+from apps.stores.services import create_store_for_user
 
 
 class StoreSerializer(serializers.ModelSerializer):
-    role = serializers.SerializerMethodField()
-    is_default = serializers.SerializerMethodField()
+    """The caller's store plus what the caller may do in it (drives the UI)."""
+
+    is_store_admin = serializers.SerializerMethodField()
+    role_name = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = Store
@@ -16,24 +21,40 @@ class StoreSerializer(serializers.ModelSerializer):
             "currency",
             "timezone",
             "business_type",
-            "role",
-            "is_default",
+            "status",
+            "is_store_admin",
+            "role_name",
+            "permissions",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "role", "is_default", "created_at", "updated_at"]
+        read_only_fields = fields
 
     def _membership(self, store: Store) -> StoreMembership | None:
         user = self.context["request"].user
-        return StoreMembership.objects.filter(store=store, user=user).first()
+        return StoreMembership.objects.select_related("role").filter(store=store, user=user).first()
 
-    def get_role(self, store: Store) -> str | None:
+    def get_is_store_admin(self, store: Store) -> bool:
         membership = self._membership(store)
-        return membership.role if membership else None
+        return bool(membership and membership.is_store_admin)
 
-    def get_is_default(self, store: Store) -> bool:
+    def get_role_name(self, store: Store) -> str | None:
         membership = self._membership(store)
-        return bool(membership and membership.is_default)
+        return membership.role.name if membership and membership.role else None
+
+    def get_permissions(self, store: Store) -> list[str]:
+        membership = self._membership(store)
+        return membership.permission_codes() if membership else []
+
+
+def _validate_timezone(value: str) -> str:
+    """Accept only real IANA timezone names (e.g. Asia/Karachi)."""
+    timezone = value.strip()
+    try:
+        ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise serializers.ValidationError("Select a valid timezone (e.g. Asia/Karachi).")
+    return timezone
 
 
 class StoreCreateSerializer(serializers.Serializer):
@@ -58,10 +79,7 @@ class StoreCreateSerializer(serializers.Serializer):
         return currency
 
     def validate_timezone(self, value: str) -> str:
-        timezone = value.strip()
-        if not timezone:
-            raise serializers.ValidationError("Enter a timezone.")
-        return timezone
+        return _validate_timezone(value)
 
     def create(self, validated_data):
         return create_store_for_user(user=self.context["request"].user, **validated_data)
@@ -84,17 +102,5 @@ class StoreUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Use a 3-letter currency code (e.g. USD).")
         return currency
 
-
-class SetDefaultStoreSerializer(serializers.Serializer):
-    store_id = serializers.IntegerField()
-
-    def validate_store_id(self, value: int) -> int:
-        user = self.context["request"].user
-        if not StoreMembership.objects.filter(user=user, store_id=value).exists():
-            raise serializers.ValidationError("You are not a member of that store.")
-        return value
-
-    def save(self, **kwargs):
-        store = Store.objects.get(pk=self.validated_data["store_id"])
-        set_default_store(user=self.context["request"].user, store=store)
-        return store
+    def validate_timezone(self, value: str) -> str:
+        return _validate_timezone(value)

@@ -35,7 +35,9 @@ function availabilityFromState(
   return null;
 }
 
-function availabilityToPatch(label: ProductAvailabilityLabel | null): Pick<
+function availabilityToPatch(
+  label: ProductAvailabilityLabel | null,
+): Pick<
   ProductGridFilterState,
   "low_stock" | "out_of_stock" | "in_stock" | "is_active"
 > {

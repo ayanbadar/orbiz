@@ -1,5 +1,4 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import type { FilterModel } from "ag-grid-community";
 import {
   parseAsBoolean,
@@ -13,9 +12,9 @@ import { FilterChip } from "@/components/filter-chip";
 import { DEFAULT_PAGE_SIZE } from "@/components/pagination";
 import { ResourceListChrome } from "@/components/resource-list-chrome";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
 import { useProducts } from "@/features/products/api/products.api";
+import { ProductDialog } from "@/features/products/components/product-dialog";
 import { Channel3SearchDialog } from "@/features/products/components/channel3-search-dialog";
 import { ProductsGrid } from "@/features/products/components/products-grid";
 import type { ProductListOrdering } from "@/features/products/types";
@@ -23,6 +22,7 @@ import {
   productFilterModelToPatch,
   productFiltersToFilterModel,
 } from "@/features/products/utils/product-grid-filters";
+import { Can } from "@/features/auth/components/can";
 import { useStoreGate } from "@/features/stores/components/use-store-gate";
 import { getResourceListState } from "@/lib/resource-list-state";
 
@@ -41,6 +41,7 @@ export function ProductsPage() {
   const storeGate = useStoreGate();
   const { store, storeReady } = storeGate;
   const [channel3Open, setChannel3Open] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [filters, setFilters] = useQueryStates({
     q: parseAsString.withDefault(""),
     name: parseAsString.withDefault(""),
@@ -123,16 +124,16 @@ export function ProductsPage() {
   } = getResourceListState(productsQuery, storeGate);
   const hasActiveFilters = Boolean(
     filters.q ||
-      filters.name ||
-      filters.sku ||
-      filters.low_stock ||
-      filters.out_of_stock ||
-      filters.in_stock ||
-      filters.is_active !== null ||
-      filters.price_min ||
-      filters.price_max ||
-      filters.stock_min ||
-      filters.stock_max,
+    filters.name ||
+    filters.sku ||
+    filters.low_stock ||
+    filters.out_of_stock ||
+    filters.in_stock ||
+    filters.is_active !== null ||
+    filters.price_min ||
+    filters.price_max ||
+    filters.stock_min ||
+    filters.stock_max,
   );
 
   const onFilterModelChange = (model: FilterModel) => {
@@ -180,23 +181,26 @@ export function ProductsPage() {
             : "Catalog and stock for your store workspace."
         }
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="cta"
-              onClick={() => setChannel3Open(true)}
-              disabled={!storeReady}
-            >
-              Search Channel3
-            </Button>
-            <Button
-              asChild
-              size="cta"
-            >
-              <Link to={ROUTES.products.new()}>Add product</Link>
-            </Button>
-          </div>
+          <Can permission="products.create">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="cta"
+                onClick={() => setChannel3Open(true)}
+                disabled={!storeReady}
+              >
+                Search Channel3
+              </Button>
+              <Button
+                type="button"
+                size="cta"
+                onClick={() => setCreateOpen(true)}
+              >
+                Add product
+              </Button>
+            </div>
+          </Can>
         }
         searchValue={filters.q}
         searchPlaceholder="Search name or SKU"
@@ -289,20 +293,25 @@ export function ProductsPage() {
                 Add one manually or import from Channel3 to start your catalog.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="cta"
-                  onClick={() => setChannel3Open(true)}
-                >
-                  Search Channel3
-                </Button>
-                <Button
-                  asChild
-                  size="cta"
-                >
-                  <Link to={ROUTES.products.new()}>Add product</Link>
-                </Button>
+                <Can permission="products.create">
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="cta"
+                      onClick={() => setChannel3Open(true)}
+                    >
+                      Search Channel3
+                    </Button>
+                    <Button
+                      type="button"
+                      size="cta"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      Add product
+                    </Button>
+                  </>
+                </Can>
               </div>
             </div>
           )
@@ -325,7 +334,11 @@ export function ProductsPage() {
         />
       </ResourceListChrome>
 
-      <Channel3SearchDialog open={channel3Open} onOpenChange={setChannel3Open} />
+      <ProductDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <Channel3SearchDialog
+        open={channel3Open}
+        onOpenChange={setChannel3Open}
+      />
     </>
   );
 }

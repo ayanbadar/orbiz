@@ -10,8 +10,8 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
 from apps.customers.models import Customer
+from apps.common.testing import create_active_store
 from apps.orders.models import Order
-from apps.stores.services import create_store_for_user
 
 PASSWORD = "Orb1z-pass"
 
@@ -30,14 +30,14 @@ class CustomerApiTests(APITestCase):
         self.other = User.objects.create_user(
             email="other@example.com", password=PASSWORD, first_name="O"
         )
-        self.store = create_store_for_user(
+        self.store = create_active_store(
             user=self.user,
             name="Demo Store",
             currency="USD",
             timezone="UTC",
             business_type="social",
         )
-        create_store_for_user(
+        create_active_store(
             user=self.other,
             name="Other Store",
             currency="USD",
@@ -131,7 +131,7 @@ class CustomerStatsApiTests(APITestCase):
         self.user = User.objects.create_user(
             email="seller@example.com", password=PASSWORD, first_name="S"
         )
-        self.store = create_store_for_user(
+        self.store = create_active_store(
             user=self.user,
             name="Demo Store",
             currency="USD",
