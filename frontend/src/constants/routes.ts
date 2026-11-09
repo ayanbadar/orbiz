@@ -13,6 +13,7 @@ export const ROUTES = {
   account: () => joinPath(ROUTES.root(), "account"),
   acceptInvite: () => joinPath(ROUTES.root(), "accept-invite"),
   billing: () => joinPath(ROUTES.root(), "billing"),
+  dashboard: () => joinPath(ROUTES.root(), "dashboard"),
 
   team: {
     users: () => joinPath(ROUTES.root(), "team"),
@@ -20,6 +21,7 @@ export const ROUTES = {
   },
 
   admin: {
+    dashboard: () => joinPath(ROUTES.root(), "admin", "dashboard"),
     stores: () => joinPath(ROUTES.root(), "admin", "stores"),
     users: () => joinPath(ROUTES.root(), "admin", "users"),
   },

@@ -6,7 +6,7 @@ export function getHomeRoute(
   args: { isPlatformAdmin: true } | { isPlatformAdmin?: false; store: Store },
 ): string {
   if (args.isPlatformAdmin) {
-    return ROUTES.admin.stores();
+    return ROUTES.admin.dashboard();
   }
   const { store } = args;
   if (store.status === "pending_payment" && store.is_store_admin) {
@@ -14,8 +14,8 @@ export function getHomeRoute(
   }
   const has = (code: string) =>
     store.is_store_admin || (store.permissions ?? []).includes(code);
+  if (has("orders.read")) return ROUTES.dashboard();
   if (has("products.read")) return ROUTES.products.root();
-  if (has("orders.read")) return ROUTES.orders.root();
   if (has("users.read")) return ROUTES.team.users();
   return ROUTES.account();
 }

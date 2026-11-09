@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.customers",
     "apps.orders",
     "apps.payments",
+    "apps.dashboard",
     "apps.assistant",
 ]
 
@@ -197,6 +198,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "customers", "description": "Store customers linked to orders."},
         {"name": "orders", "description": "Draft and confirmed orders, stock, and status."},
         {"name": "payments", "description": "PayPal Sandbox checkout, capture, and webhooks."},
+        {"name": "dashboard", "description": "Store and platform analytics summaries."},
         {"name": "assistant", "description": "Orbiz AI — chat, drafts, and proposed actions."},
     ],
 }

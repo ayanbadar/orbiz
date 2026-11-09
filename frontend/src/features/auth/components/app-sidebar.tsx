@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   CreditCard,
+  LayoutDashboard,
   Package,
   ShieldCheck,
   Store as StoreIcon,
@@ -30,6 +31,12 @@ type NavItem = {
 };
 
 const STORE_NAV_ITEMS: NavItem[] = [
+  {
+    to: ROUTES.dashboard(),
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    permission: "orders.read",
+  },
   {
     to: ROUTES.orders.root(),
     label: "Orders",
@@ -76,6 +83,7 @@ const STORE_NAV_ITEMS: NavItem[] = [
 ];
 
 const PLATFORM_NAV_ITEMS: NavItem[] = [
+  { to: ROUTES.admin.dashboard(), label: "Dashboard", icon: LayoutDashboard },
   { to: ROUTES.admin.stores(), label: "Stores", icon: StoreIcon },
   { to: ROUTES.admin.users(), label: "All users", icon: Users },
 ];
