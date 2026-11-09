@@ -45,6 +45,7 @@ urlpatterns = [
     path("api/v1/customers/", include("apps.customers.urls")),
     path("api/v1/orders/", include("apps.orders.urls")),
     path("api/v1/payments/", include("apps.payments.urls")),
+    path("api/v1/assistant/", include("apps.assistant.urls")),
     path("api/schema/", SchemaView.as_view(), name="schema"),
     path(
         "api/docs/",

@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import { ROUTES } from "@/constants/routes";
+import { AssistantPage } from "@/features/assistant/components/assistant-page";
 import { AccountPage } from "@/features/auth/components/account-page";
 import { AppShell } from "@/features/auth/components/app-shell";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
@@ -201,6 +202,16 @@ export function App() {
           <RequireAuth>
             <AppShell>
               <DemoPage />
+            </AppShell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path={ROUTES.assistant.root()}
+        element={
+          <RequireAuth>
+            <AppShell>
+              <AssistantPage />
             </AppShell>
           </RequireAuth>
         }

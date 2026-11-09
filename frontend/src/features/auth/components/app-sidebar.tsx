@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   Package,
+  Sparkles,
   UserRound,
   Users,
   X,
@@ -37,6 +38,11 @@ const NAV_ITEMS: NavItem[] = [
     to: ROUTES.products.root(),
     label: "Products",
     icon: Package,
+  },
+  {
+    to: ROUTES.assistant.root(),
+    label: "Orbiz AI",
+    icon: Sparkles,
   },
 ];
 

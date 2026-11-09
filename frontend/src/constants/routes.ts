@@ -48,6 +48,10 @@ export const ROUTES = {
     root: () => joinPath(ROUTES.root(), "demo"),
   },
 
+  assistant: {
+    root: () => joinPath(ROUTES.root(), "assistant"),
+  },
+
   /** Public landing pages for people who are not Orbiz users (the buyer paying a PayPal link). */
   pay: {
     return: () => joinPath(ROUTES.root(), "pay", "return"),

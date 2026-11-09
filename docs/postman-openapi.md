@@ -26,8 +26,9 @@ Orbiz serves the live schema from the API. Export that into Postman for the hack
 - `GET /api/v1/products/{id}/order-usage/`
 - `POST /api/v1/products/channel3/search/`
 - `POST /api/v1/products/import-from-channel3/`
-- `GET/POST /api/v1/customers/`
-- `GET/POST /api/v1/orders/`
+- `GET/POST /api/v1/customers/` — list supports `q`, `name`, `email`, `phone`, `orders_min`, `orders_max`, `ordering` (`name` / `order_count` / `last_order_at` / `created_at`, each ± ); every row (list, detail, create, patch response) includes `order_count` and `last_order_at`
+- `GET/PATCH /api/v1/customers/{id}/`
+- `GET/POST /api/v1/orders/` — list also supports `customer_id` (exact match; used by the customer profile's "view all orders" link)
 - `POST /api/v1/orders/{id}/confirm/` — locks + deducts stock; optional body `{notify_customer?: boolean}` (default false) also emails the customer an order confirmation — 400 `notify_customer` if the customer has no email, checked before anything is confirmed
 - `POST /api/v1/orders/{id}/mark-paid/` — demo / offline fallback (prefer PayPal Sandbox)
 - `POST /api/v1/orders/{id}/abandon-payment/` — payment cancelled, order stays unfulfilled
