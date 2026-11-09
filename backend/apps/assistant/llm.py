@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 from django.conf import settings
 
-from apps.common.exceptions import BadGatewayError, ServiceUnavailableError
+from apps.common.exceptions import BadGatewayError, ServiceUnavailableError, TooManyRequestsError
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,11 @@ def send_turn(
         "instructions": system_prompt,
         "input": input_items,
         "tools": tools,
+        # Every tool in TOOL_SCHEMAS is strict (see tools.py's _to_strict) — OpenAI's own
+        # guidance is to pair that with parallel_tool_calls: false, since a batch of parallel
+        # calls doesn't get the same per-call strict validation. One tool call per round costs
+        # at most one extra round-trip (MAX_TOOL_ROUNDS has headroom for that).
+        "parallel_tool_calls": False,
     }
     effort = _reasoning_effort()
     if effort:
@@ -93,6 +98,12 @@ def send_turn(
         logger.warning("Orbiz AI request failed: %s", exc)
         raise BadGatewayError("Orbiz AI is unreachable right now.") from exc
 
+    if response.status_code == 429:
+        logger.warning("Orbiz AI rate limited: %s", response.text[:500])
+        raise TooManyRequestsError(
+            "Orbiz AI is getting a lot of requests right now — try again in a moment."
+        )
+
     if response.status_code >= 400:
         logger.warning("Orbiz AI HTTP %s: %s", response.status_code, response.text[:500])
         raise BadGatewayError(
@@ -100,7 +111,15 @@ def send_turn(
             extra={"status_code": response.status_code},
         )
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        logger.warning("Orbiz AI returned a non-JSON body: %s", response.text[:500])
+        raise BadGatewayError("Orbiz AI sent back something we couldn't read.") from exc
+    if not isinstance(data, dict):
+        logger.warning("Orbiz AI returned an unexpected body shape: %s", response.text[:500])
+        raise BadGatewayError("Orbiz AI sent back something we couldn't read.")
+
     return _parse_response(data)
 
 

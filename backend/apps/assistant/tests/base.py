@@ -4,10 +4,11 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
+from apps.common.testing import create_active_store
 from apps.customers.models import Customer
 from apps.payments.models import PaymentCheckout
 from apps.products.models import Product
-from apps.stores.services import create_store_for_user
+from apps.stores.models import Role, StoreMembership
 
 PASSWORD = "Orb1z-pass"
 
@@ -36,12 +37,23 @@ class AssistantTestCase(APITestCase):
         self.other = User.objects.create_user(
             email="other@example.com", password=PASSWORD, first_name="O"
         )
-        self.store = create_store_for_user(
+        self.store = create_active_store(
             user=self.user, name="Demo Store", currency="USD", timezone="UTC", business_type="social"
         )
-        self.other_store = create_store_for_user(
+        self.other_store = create_active_store(
             user=self.other, name="Other Store", currency="USD", timezone="UTC", business_type="social"
         )
+        # A non-admin teammate in self.store — for permission tests (§2) and same-store
+        # conversation sharing. Not a store admin, so its access is governed entirely by its role.
+        self.staff_role = Role.objects.create(
+            store=self.store,
+            name="Assistant staff",
+            permissions=["assistant.read", "assistant.create", "assistant.update"],
+        )
+        self.teammate = User.objects.create_user(
+            email="teammate@example.com", password=PASSWORD, first_name="T"
+        )
+        StoreMembership.objects.create(store=self.store, user=self.teammate, role=self.staff_role)
         self.customer = Customer.objects.create(
             store=self.store, name="Ayesha Khan", email="a@example.com"
         )

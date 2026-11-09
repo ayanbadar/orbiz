@@ -191,6 +191,32 @@ class RunTurnTests(AssistantTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["reply"])
 
+    @patch("apps.assistant.services.send_turn")
+    def test_llm_failure_closes_the_turn_with_a_reply_instead_of_a_bare_500(self, mock_send):
+        from apps.common.exceptions import BadGatewayError
+
+        mock_send.side_effect = BadGatewayError("Orbiz AI could not process that message.")
+        response = self.client.post("/api/v1/assistant/messages/", {"message": "hi"}, format="json")
+        # The whole point: this still comes back 200, like any other successful send, so the
+        # seller's message was never silently orphaned with no visible reply.
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["reply"], "Orbiz AI could not process that message.")
+
+        conversation_id = response.data["conversation_id"]
+        detail = self.client.get(f"/api/v1/assistant/conversations/{conversation_id}/")
+        messages = detail.data["messages"]
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertEqual(messages[1]["role"], "assistant")
+        self.assertEqual(messages[1]["content"], "Orbiz AI could not process that message.")
+
+    @patch("apps.assistant.services.send_turn")
+    def test_unexpected_llm_crash_still_closes_the_turn_gracefully(self, mock_send):
+        mock_send.side_effect = RuntimeError("boom")
+        response = self.client.post("/api/v1/assistant/messages/", {"message": "hi"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("went wrong", response.data["reply"])
+
     def test_other_users_conversation_list_is_isolated(self):
         with patch("apps.assistant.services.send_turn") as mock_send:
             mock_send.return_value = LLMResponse(content="hi there")

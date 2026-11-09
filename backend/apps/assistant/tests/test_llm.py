@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase, override_settings
 
 from apps.assistant import llm
+from apps.common.exceptions import BadGatewayError, TooManyRequestsError
 
 
 def _mock_response(output: list | None = None) -> MagicMock:
@@ -42,3 +43,57 @@ class ReasoningEffortTests(TestCase):
         llm.send_turn(system_prompt="hi", input_items=[], tools=[])
         sent_body = mock_post.call_args.kwargs["json"]
         self.assertNotIn("reasoning", sent_body)
+
+
+@override_settings(OPENAI_API_KEY="test-key", ASSISTANT_MODEL="gpt-5-mini")
+class RequestShapeTests(TestCase):
+    @patch("httpx.Client.post")
+    def test_parallel_tool_calls_is_disabled_to_match_strict_mode(self, mock_post):
+        mock_post.return_value = _mock_response()
+        llm.send_turn(system_prompt="hi", input_items=[], tools=[])
+        sent_body = mock_post.call_args.kwargs["json"]
+        self.assertIs(sent_body["parallel_tool_calls"], False)
+
+
+@override_settings(OPENAI_API_KEY="test-key", ASSISTANT_MODEL="gpt-5-mini")
+class ErrorHandlingTests(TestCase):
+    """A seller-facing message for each failure mode, never an unhandled 500 mid-turn."""
+
+    @patch("httpx.Client.post")
+    def test_429_raises_a_distinct_rate_limited_error_not_a_generic_bad_gateway(self, mock_post):
+        resp = MagicMock()
+        resp.status_code = 429
+        resp.text = "rate limited"
+        mock_post.return_value = resp
+        with self.assertRaises(TooManyRequestsError) as caught:
+            llm.send_turn(system_prompt="hi", input_items=[], tools=[])
+        self.assertEqual(caught.exception.status_code, 429)
+
+    @patch("httpx.Client.post")
+    def test_other_4xx_still_raises_bad_gateway(self, mock_post):
+        resp = MagicMock()
+        resp.status_code = 400
+        resp.text = "bad request"
+        mock_post.return_value = resp
+        with self.assertRaises(BadGatewayError):
+            llm.send_turn(system_prompt="hi", input_items=[], tools=[])
+
+    @patch("httpx.Client.post")
+    def test_non_json_body_raises_bad_gateway_not_an_unhandled_exception(self, mock_post):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.side_effect = ValueError("not json")
+        resp.text = "<html>not json</html>"
+        mock_post.return_value = resp
+        with self.assertRaises(BadGatewayError):
+            llm.send_turn(system_prompt="hi", input_items=[], tools=[])
+
+    @patch("httpx.Client.post")
+    def test_unexpected_json_shape_raises_bad_gateway(self, mock_post):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = ["not", "a", "dict"]
+        resp.text = '["not", "a", "dict"]'
+        mock_post.return_value = resp
+        with self.assertRaises(BadGatewayError):
+            llm.send_turn(system_prompt="hi", input_items=[], tools=[])

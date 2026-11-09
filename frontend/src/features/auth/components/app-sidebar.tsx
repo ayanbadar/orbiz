@@ -67,16 +67,17 @@ const STORE_NAV_ITEMS: NavItem[] = [
     icon: CreditCard,
     storeAdminOnly: true,
   },
+  {
+    to: ROUTES.assistant.root(),
+    label: "Orbiz AI",
+    icon: Sparkles,
+    permission: "assistant.read",
+  },
 ];
 
 const PLATFORM_NAV_ITEMS: NavItem[] = [
   { to: ROUTES.admin.stores(), label: "Stores", icon: StoreIcon },
   { to: ROUTES.admin.users(), label: "All users", icon: Users },
-  {
-    to: ROUTES.assistant.root(),
-    label: "Orbiz AI",
-    icon: Sparkles,
-  },
 ];
 
 function SidebarNavLink({

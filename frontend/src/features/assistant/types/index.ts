@@ -2,15 +2,35 @@ import type { Order } from "@/features/orders/types";
 
 export type AssistantMessageRole = "user" | "assistant";
 
+export type AssistantResultTableKind = "orders" | "customers" | "products";
+
+/** A list/search tool's own rows for this reply — rendered as a table instead of retyped prose. */
+export type AssistantResultTable = {
+  tool: string;
+  kind: AssistantResultTableKind;
+  title: string;
+  rows: Record<string, unknown>[];
+  total_count: number;
+  truncated: boolean;
+  next_offset: number | null;
+  /** Query params for the real Orders/Products/Customers page's own filters — "view all". */
+  view_all: Record<string, string>;
+};
+
 export type AssistantMessage = {
   id: number;
   role: AssistantMessageRole;
   content: string;
   created_at: string;
+  /** Order numbers / customer names this reply's tool calls touched — empty for most messages. */
+  source_records: string[];
+  /** Structured list-tool results from this reply's own turn — empty for most messages. */
+  result_tables: AssistantResultTable[];
 };
 
-export type AssistantActionType = "refund" | "capture" | "import_product";
+export type AssistantActionType = "refund" | "capture" | "import_product" | "request_payment";
 export type AssistantActionStatus = "pending" | "confirmed" | "rejected" | "expired";
+export type AssistantPaymentMethod = "checkout" | "invoice" | "email_link";
 
 export type AssistantActionOrderRef = {
   id: number;
@@ -29,6 +49,8 @@ export type AssistantActionPayload = {
     brand?: string;
     suggested_price?: string;
   };
+  /** Which payment method the seller picked on a request_payment choice card, once resolved. */
+  method?: AssistantPaymentMethod;
 };
 
 export type AssistantAction = {
@@ -100,6 +122,7 @@ export type ActionConfirmOverrides = {
   price?: string;
   stock_quantity?: number;
   low_stock_threshold?: number;
+  method?: AssistantPaymentMethod;
 };
 
 export type { Paginated } from "@/lib/api/types";

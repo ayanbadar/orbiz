@@ -4,14 +4,12 @@ import { ROUTES } from "@/constants/routes";
 import { AssistantPage } from "@/features/assistant/components/assistant-page";
 import { AccountPage } from "@/features/auth/components/account-page";
 import { AdminUsersPage } from "@/features/auth/components/admin-users-page";
-import { AppShell } from "@/features/auth/components/app-shell";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
 import { ResetPasswordPage } from "@/features/auth/components/reset-password-page";
 import {
   GuestOnly,
   HomeRedirect,
   ProtectedLayout,
-  RequireAuth,
   RequirePermission,
   RequirePlatformAdmin,
   RequireStoreAdmin,
@@ -145,6 +143,10 @@ export function App() {
             />
           </Route>
 
+          <Route element={<RequirePermission permission="assistant.read" />}>
+            <Route path={ROUTES.assistant.root()} element={<AssistantPage />} />
+          </Route>
+
           <Route path={ROUTES.demo.root()} element={<DemoPage />} />
         </Route>
 
@@ -154,16 +156,6 @@ export function App() {
         </Route>
       </Route>
 
-      <Route
-        path={ROUTES.assistant.root()}
-        element={
-          <RequireAuth>
-            <AppShell>
-              <AssistantPage />
-            </AppShell>
-          </RequireAuth>
-        }
-      />
       <Route path="*" element={<HomeRedirect />} />
     </Routes>
   );

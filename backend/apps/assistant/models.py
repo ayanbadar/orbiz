@@ -56,6 +56,7 @@ class AssistantAction(models.Model):
         REFUND = "refund", "Refund"
         CAPTURE = "capture", "Capture"
         IMPORT_PRODUCT = "import_product", "Import product"
+        REQUEST_PAYMENT = "request_payment", "Request payment"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"

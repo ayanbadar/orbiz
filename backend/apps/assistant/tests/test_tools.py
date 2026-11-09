@@ -40,6 +40,46 @@ class ReadOnlyToolsTests(AssistantTestCase):
         )
         self.assertEqual(len(output2["orders"]), len(output["orders"]))
 
+    def test_list_unpaid_orders_payment_status_filter_narrows_to_exactly_one_status(self):
+        from apps.orders.services import create_draft
+
+        draft_id = create_draft(
+            store=self.store, user=self.user, customer=self.customer,
+            lines=[{"product_id": self.product.id, "quantity": 1}],
+        ).id  # payment_status: unpaid
+        confirmed_id = self.confirmed_order()  # confirm_order sets payment_status: pending
+
+        unpaid_only, _ = tools._tool_list_unpaid_orders(
+            store=self.store, user=self.user, conversation=None, payment_status="unpaid"
+        )
+        self.assertEqual(unpaid_only["payment_status_filter"], "unpaid")
+        unpaid_ids = {o["order_id"] for o in unpaid_only["orders"]}
+        self.assertIn(draft_id, unpaid_ids)
+        self.assertNotIn(confirmed_id, unpaid_ids)
+
+        pending_only, _ = tools._tool_list_unpaid_orders(
+            store=self.store, user=self.user, conversation=None, payment_status="pending"
+        )
+        self.assertEqual(pending_only["payment_status_filter"], "pending")
+        pending_ids = {o["order_id"] for o in pending_only["orders"]}
+        self.assertIn(confirmed_id, pending_ids)
+        self.assertNotIn(draft_id, pending_ids)
+
+        both, _ = tools._tool_list_unpaid_orders(store=self.store, user=self.user, conversation=None)
+        self.assertEqual(both["payment_status_filter"], "unpaid_and_pending")
+        both_ids = {o["order_id"] for o in both["orders"]}
+        self.assertEqual(both_ids, unpaid_ids | pending_ids)
+
+    def test_list_unpaid_orders_ignores_a_garbage_payment_status_value(self):
+        # strict mode's enum constrains what the model CAN send, but the dispatch function
+        # shouldn't trust that alone — a stray/invalid value must fall back to "both", not crash
+        # or silently return nothing.
+        self.confirmed_order()
+        output, _ = tools._tool_list_unpaid_orders(
+            store=self.store, user=self.user, conversation=None, payment_status="paid"
+        )
+        self.assertEqual(output["payment_status_filter"], "unpaid_and_pending")
+
     def test_order_status_summary_groups_correctly_not_one_row_per_order(self):
         self.confirmed_order()
         self.confirmed_order()
@@ -144,6 +184,27 @@ class ReadOnlyToolsTests(AssistantTestCase):
         recent, _ = tools._tool_list_recent_orders(store=self.store, user=self.user, conversation=None)
         self.assertEqual(recent["total_count"], unpaid["total_count"])
         self.assertTrue(recent["truncated"])
+
+    def test_list_recent_orders_date_range_filters_by_created_at(self):
+        in_range_id = self.confirmed_order()
+        out_of_range_id = self.confirmed_order()
+        Order.objects.filter(pk=in_range_id).update(created_at="2026-11-03T12:00:00Z")
+        Order.objects.filter(pk=out_of_range_id).update(created_at="2026-10-01T12:00:00Z")
+
+        output, _ = tools._tool_list_recent_orders(
+            store=self.store, user=self.user, conversation=None,
+            created_after="2026-11-01", created_before="2026-11-07",
+        )
+        order_ids = {row["order_id"] for row in output["orders"]}
+        self.assertIn(in_range_id, order_ids)
+        self.assertNotIn(out_of_range_id, order_ids)
+
+    def test_list_recent_orders_rejects_an_unparsable_date(self):
+        output, _ = tools._tool_list_recent_orders(
+            store=self.store, user=self.user, conversation=None, created_after="not-a-date"
+        )
+        self.assertIn("error", output)
+        self.assertNotIn("orders", output)
 
     def test_find_customers_includes_notes(self):
         self.customer.notes = "always wants gift wrap"
@@ -687,3 +748,152 @@ class ProductAutomationToolsTests(AssistantTestCase):
         self.assertIn("error", output)
         self.product.refresh_from_db()
         self.assertEqual(self.product.price, Decimal("49.00"), "a stale id must never pick the target")
+
+
+class PaginationTests(AssistantTestCase):
+    """
+    The same offset/total_count/truncated/next_offset pattern, applied uniformly across every
+    list/search tool — orders, customers, and products alike. Each test shrinks the relevant page
+    size via patch() to 2, so a handful of rows is enough to exercise "page 1 truncated, page 2
+    (reached via the previous page's own next_offset) is the real remainder, no overlap, no
+    offset ever invented by the caller".
+    """
+
+    def _extra_orders(self, n: int) -> None:
+        from apps.orders.services import create_draft
+
+        for _ in range(n):
+            create_draft(
+                store=self.store,
+                user=self.user,
+                customer=self.customer,
+                lines=[{"product_id": self.product.id, "quantity": 1}],
+            )
+
+    def test_list_unpaid_orders_pages_through_every_order_exactly_once(self):
+        self._extra_orders(5)  # + the 2 fixture products' draft orders below = enough for 2 pages
+        with patch.object(tools, "STORE_LIST_LIMIT", 2):
+            page1, _ = tools._tool_list_unpaid_orders(store=self.store, user=self.user, conversation=None)
+            self.assertEqual(page1["total_count"], 5)
+            self.assertTrue(page1["truncated"])
+            self.assertEqual(len(page1["orders"]), 2)
+            self.assertEqual(page1["next_offset"], 2)
+
+            page2, _ = tools._tool_list_unpaid_orders(
+                store=self.store, user=self.user, conversation=None, offset=page1["next_offset"]
+            )
+            self.assertEqual(len(page2["orders"]), 2)
+            self.assertTrue(page2["truncated"])
+            page1_ids = {o["order_id"] for o in page1["orders"]}
+            page2_ids = {o["order_id"] for o in page2["orders"]}
+            self.assertEqual(page1_ids & page2_ids, set(), "pages must never overlap")
+
+            page3, _ = tools._tool_list_unpaid_orders(
+                store=self.store, user=self.user, conversation=None, offset=page2["next_offset"]
+            )
+            self.assertEqual(len(page3["orders"]), 1)
+            self.assertFalse(page3["truncated"])
+            self.assertNotIn("next_offset", page3)
+
+    def test_list_recent_orders_pagination(self):
+        self._extra_orders(5)
+        with patch.object(tools, "STORE_LIST_LIMIT", 2):
+            page1, _ = tools._tool_list_recent_orders(store=self.store, user=self.user, conversation=None, limit=2)
+            self.assertTrue(page1["truncated"])
+            page2, _ = tools._tool_list_recent_orders(
+                store=self.store, user=self.user, conversation=None, limit=2, offset=page1["next_offset"]
+            )
+            self.assertEqual(
+                {o["order_id"] for o in page1["orders"]} & {o["order_id"] for o in page2["orders"]}, set()
+            )
+
+    def test_list_low_stock_products_pagination(self):
+        for i in range(3):
+            Product.objects.create(
+                store=self.store, name=f"Low {i}", sku=f"LOW-{i}", price=Decimal("5.00"),
+                currency="USD", stock_quantity=1, low_stock_threshold=5,
+            )
+        with patch.object(tools, "STORE_LIST_LIMIT", 2):
+            # self.low_stock_product + the 3 new ones = 4 total.
+            page1, _ = tools._tool_list_low_stock_products(store=self.store, user=self.user, conversation=None)
+            self.assertEqual(page1["total_count"], 4)
+            self.assertTrue(page1["truncated"])
+            page2, _ = tools._tool_list_low_stock_products(
+                store=self.store, user=self.user, conversation=None, offset=page1["next_offset"]
+            )
+            self.assertEqual(len(page1["products"]) + len(page2["products"]), 4)
+            page1_skus = {p["sku"] for p in page1["products"]}
+            page2_skus = {p["sku"] for p in page2["products"]}
+            self.assertEqual(page1_skus & page2_skus, set())
+
+    def test_find_customers_pagination(self):
+        from apps.customers.models import Customer
+
+        for i in range(4):
+            Customer.objects.create(store=self.store, name=f"Pagey Customer {i}", email=f"pagey{i}@x.com")
+        with patch.object(tools, "SEARCH_RESULT_LIMIT", 2):
+            page1, _ = tools._tool_find_customers(
+                store=self.store, user=self.user, conversation=None, query="Pagey"
+            )
+            self.assertEqual(page1["total_count"], 4)
+            self.assertTrue(page1["truncated"])
+            page2, _ = tools._tool_find_customers(
+                store=self.store, user=self.user, conversation=None, query="Pagey", offset=page1["next_offset"]
+            )
+            page1_ids = {c["id"] for c in page1["customers"]}
+            page2_ids = {c["id"] for c in page2["customers"]}
+            self.assertEqual(page1_ids & page2_ids, set())
+            self.assertEqual(len(page1_ids) + len(page2_ids), 4)
+
+    def test_find_products_pagination(self):
+        for i in range(4):
+            Product.objects.create(
+                store=self.store, name=f"Pagey Product {i}", sku=f"PAGEY-{i}", price=Decimal("1.00"),
+                currency="USD", stock_quantity=10,
+            )
+        with patch.object(tools, "SEARCH_RESULT_LIMIT", 2):
+            page1, _ = tools._tool_find_products(
+                store=self.store, user=self.user, conversation=None, query="Pagey"
+            )
+            self.assertEqual(page1["total_count"], 4)
+            self.assertTrue(page1["truncated"])
+            page2, _ = tools._tool_find_products(
+                store=self.store, user=self.user, conversation=None, query="Pagey", offset=page1["next_offset"]
+            )
+            page1_skus = {p["sku"] for p in page1["products"]}
+            page2_skus = {p["sku"] for p in page2["products"]}
+            self.assertEqual(page1_skus & page2_skus, set())
+            self.assertEqual(len(page1_skus) + len(page2_skus), 4)
+
+    def test_list_customer_orders_pagination(self):
+        self._extra_orders(5)
+        with patch.object(tools, "CUSTOMER_ORDERS_LIMIT", 2):
+            page1, _ = tools._tool_list_customer_orders(
+                store=self.store, user=self.user, conversation=None, customer_id=self.customer.id
+            )
+            self.assertEqual(page1["total_orders"], 5)
+            self.assertTrue(page1["truncated"])
+            page2, _ = tools._tool_list_customer_orders(
+                store=self.store,
+                user=self.user,
+                conversation=None,
+                customer_id=self.customer.id,
+                offset=page1["next_offset"],
+            )
+            # by_payment_status/total_orders always describe the whole customer, not just the page.
+            self.assertEqual(page2["total_orders"], 5)
+            self.assertEqual(page1["by_payment_status"], page2["by_payment_status"])
+            page1_ids = {o["order_id"] for o in page1["orders"]}
+            page2_ids = {o["order_id"] for o in page2["orders"]}
+            self.assertEqual(page1_ids & page2_ids, set())
+
+    def test_negative_offset_clamps_to_the_first_page_instead_of_erroring(self):
+        self._extra_orders(3)
+        with patch.object(tools, "STORE_LIST_LIMIT", 2):
+            first_page, _ = tools._tool_list_unpaid_orders(store=self.store, user=self.user, conversation=None)
+            negative, _ = tools._tool_list_unpaid_orders(
+                store=self.store, user=self.user, conversation=None, offset=-5
+            )
+            self.assertEqual(
+                [o["order_id"] for o in negative["orders"]], [o["order_id"] for o in first_page["orders"]]
+            )

@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 
 import { ActionProposalCard } from "@/features/assistant/components/action-proposal-card";
 import { AssistantMarkdown } from "@/features/assistant/components/assistant-markdown";
+import { AssistantResultsTable } from "@/features/assistant/components/assistant-results-table";
 import { DraftOrderCard } from "@/features/assistant/components/draft-order-card";
 import type { AssistantAction, AssistantMessage } from "@/features/assistant/types";
 import type { Order } from "@/features/orders/types";
@@ -114,8 +115,16 @@ export function AssistantMessageList({
         ) : (
           <li key={item.key} className="flex items-start gap-3">
             <AssistantAvatar />
-            <div className="min-w-0 flex-1 pt-0.5">
+            <div className="min-w-0 flex-1 space-y-2 pt-0.5">
               <AssistantMarkdown content={message.content} />
+              {message.result_tables.map((table, index) => (
+                <AssistantResultsTable key={`${table.tool}-${index}`} table={table} />
+              ))}
+              {message.source_records.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Checked: {message.source_records.join(", ")}
+                </p>
+              ) : null}
             </div>
           </li>
         );

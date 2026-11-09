@@ -1,42 +1,55 @@
-import { Sparkles } from "lucide-react";
+import { useState } from "react";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  useAssistantConversations,
+  useCreateAssistantConversation,
+} from "@/features/assistant/api/assistant.api";
 import { AssistantActivityList } from "@/features/assistant/components/assistant-activity-list";
 import { AssistantDigestPanel } from "@/features/assistant/components/assistant-digest-panel";
-import { ChatTab } from "@/features/assistant/components/chat-tab";
+import { type AssistantView, AssistantSidebar } from "@/features/assistant/components/assistant-sidebar";
+import { ChatPanel } from "@/features/assistant/components/chat-panel";
 
 export function AssistantPage() {
+  const [view, setView] = useState<AssistantView>("chat");
+  const conversations = useAssistantConversations();
+  // Nothing explicitly picked yet → fall back to the most recent conversation already loaded,
+  // derived at render time rather than synced via an effect.
+  const [explicitId, setExplicitId] = useState<number | null>(null);
+  const selectedId = explicitId ?? conversations.data?.results[0]?.id ?? null;
+  const createConversation = useCreateAssistantConversation();
+
+  const handleDeleted = (id: number) => {
+    if (id === selectedId) {
+      setExplicitId(null);
+    }
+  };
+
+  const handleNewConversation = async () => {
+    const created = await createConversation.mutateAsync();
+    setExplicitId(created.conversation_id);
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground">
-          <Sparkles className="size-5" aria-hidden />
-        </span>
-        <div>
-          <h1 className="font-heading text-xl font-semibold text-foreground">Orbiz AI</h1>
-          <p className="text-sm text-muted-foreground">
-            Draft orders, answer questions, and propose PayPal actions — grounded in your store.
-          </p>
+    <div className="flex h-full min-h-0">
+      <AssistantSidebar
+        view={view}
+        onViewChange={setView}
+        selectedId={selectedId}
+        onSelect={setExplicitId}
+        onNewConversation={() => void handleNewConversation()}
+        onDeleted={handleDeleted}
+      />
+
+      {view === "chat" ? (
+        <ChatPanel conversationId={selectedId} onConversationChange={setExplicitId} />
+      ) : (
+        <div className="scrollbar-slim min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+          <h2 className="mb-4 font-heading text-lg font-semibold text-foreground">
+            {view === "attention" ? "Needs attention" : "Activity"}
+          </h2>
+          {view === "attention" ? <AssistantDigestPanel /> : <AssistantActivityList />}
         </div>
-      </div>
-
-      <Tabs defaultValue="chat" className="gap-4">
-        <TabsList>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="attention">Needs attention</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="chat">
-          <ChatTab />
-        </TabsContent>
-        <TabsContent value="attention">
-          <AssistantDigestPanel />
-        </TabsContent>
-        <TabsContent value="activity">
-          <AssistantActivityList />
-        </TabsContent>
-      </Tabs>
+      )}
     </div>
   );
 }

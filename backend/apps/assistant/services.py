@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -15,8 +16,11 @@ from apps.assistant.llm import LLMResponse, send_turn
 from apps.assistant.models import AssistantAction, AssistantConversation, AssistantMessage
 from apps.common.exceptions import ApplicationError, ConflictError, NotFoundError
 from apps.orders.models import Order, OrderEvent
+from apps.payments import emails as payment_emails
 from apps.payments import services as payments_services
 from apps.products.services import import_product_from_channel3
+
+logger = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 6
 
@@ -38,6 +42,11 @@ see how you work. Everything you write is read by them, so:
   reply. Talk about payments exactly as you would in a live store: "paid", "payment link sent".
 - Refer to orders by their number (e.g. ORD-1064) and to customers by name. Never show internal
   ids, JSON, or raw statuses.
+- "unpaid" and "pending" are different things — never say either word raw. An "unpaid" order has
+  no payment started at all: say "hasn't been paid yet" / "no payment started". A "pending" order
+  has an open payment attempt that hasn't gone through: say "a payment is in progress" /
+  "waiting on a payment that's already started" / "payment not confirmed yet". If you're showing
+  both together, it's fine to say "hasn't been paid yet" for the whole group.
 - Keep replies short and plain: say what you did or found, then at most one short question.
   Do not list every possible next step, and do not explain the system's internals.
 
@@ -46,6 +55,30 @@ unless you just got it from a tool call in this conversation. If no tool can ans
 question, say so plainly — "I don't have a way to check that yet" — instead of guessing
 or estimating. This applies especially to counts and totals: call order_status_summary
 for "how many orders" questions rather than approximating from a partial list.
+
+Every list/search tool (list_unpaid_orders, list_recent_orders, list_low_stock_products,
+find_customers, find_products, list_customer_orders) returns one page at a time. When its
+result says truncated: true, that is NOT the full list — say so plainly rather than treating it
+as complete, and if the seller wants more, call that exact same tool again with offset set to
+the next_offset value it just gave you. Never invent an offset yourself.
+
+For a question about orders in a specific date range ("orders between Nov 1 and Nov 7", "what
+came in last week"), call list_recent_orders with created_after/created_before (YYYY-MM-DD) —
+this is a real, answerable question, not one to decline or redirect to a different search.
+Products and customers have no date-range tool yet; for those, say so plainly instead of
+guessing.
+
+The app already renders any such list/search result as a table right under your reply — never
+retype its rows (names, numbers, statuses, totals) back into your own text, that just duplicates
+what's already on screen. Your reply to a list/search call should be one short line (what you
+found, and the count) plus at most one short follow-up question — the table carries the detail.
+
+list_unpaid_orders returns unpaid and pending orders together unless you set payment_status.
+Only set it when the seller's own wording picked one specifically ("show me the pending ones",
+"which are still unpaid") — for a general question ("what hasn't been paid", "unpaid orders")
+leave it unset and show both together. Never filter the combined result down to one status
+yourself after the fact — call the tool again with payment_status set instead; that way the
+counts, the next_offset, and what you say are all about the same thing.
 
 For anything about ONE customer's orders — how many, which are paid or unpaid, whether an
 invoice or pay-now link was sent, a breakdown — call list_customer_orders and use its counts
@@ -78,9 +111,11 @@ for you only; the seller must see just the plain-language description, never the
 - send_invoice: a PayPal invoice — a different thing from the pay-now link. Only when the
   seller says "invoice".
 - send_reminder: a follow-up nudge for a request the customer was already sent.
-Picking one without asking is the same mistake as guessing a customer or a product. Ask which
-the seller wants, unless their own wording already picked one. Never substitute one for
-another: if the seller asked to email the pay-now link, do not send an invoice instead.
+Picking one without asking is the same mistake as guessing a customer or a product. Unless the
+seller's own wording already picked one, call offer_payment_method_choice(order_id) — this
+shows a pick-one card instead of you asking in text, and whichever the seller picks runs
+immediately. Never substitute one for another: if the seller asked to email the pay-now link,
+do not send an invoice instead.
 
 For any question about whether the seller has, sells, or stocks a product, call
 find_products first — it searches their own catalog. Only reach for
@@ -119,27 +154,22 @@ evidence the product doesn't exist."""
 # --- Conversations --------------------------------------------------------------------
 
 
-def list_conversations(*, store, user):
-    return AssistantConversation.objects.filter(store=store, created_by=user).order_by(
-        "-updated_at"
-    )
+def list_conversations(*, store):
+    # Store-wide, not per-user: every member of the store's team shares one set of Orbiz AI
+    # conversations, same as orders/products/customers. created_by stays on the model as "who
+    # started this" but is no longer a filter.
+    return AssistantConversation.objects.filter(store=store).order_by("-updated_at")
 
 
-def get_conversation(*, conversation_id: int, store, user) -> AssistantConversation:
-    conversation = AssistantConversation.objects.filter(
-        pk=conversation_id, store=store, created_by=user
-    ).first()
+def get_conversation(*, conversation_id: int, store) -> AssistantConversation:
+    conversation = AssistantConversation.objects.filter(pk=conversation_id, store=store).first()
     if conversation is None:
         raise NotFoundError("Conversation not found.")
     return conversation
 
 
 def get_or_create_conversation(*, store, user) -> AssistantConversation:
-    conversation = (
-        AssistantConversation.objects.filter(store=store, created_by=user)
-        .order_by("-updated_at")
-        .first()
-    )
+    conversation = AssistantConversation.objects.filter(store=store).order_by("-updated_at").first()
     if conversation is not None:
         return conversation
     return AssistantConversation.objects.create(store=store, created_by=user)
@@ -147,6 +177,19 @@ def get_or_create_conversation(*, store, user) -> AssistantConversation:
 
 def new_conversation(*, store, user) -> AssistantConversation:
     return AssistantConversation.objects.create(store=store, created_by=user)
+
+
+def delete_conversation(*, conversation_id: int, store) -> None:
+    """
+    Removes the conversation and its messages/created-order links (both CASCADE). Any
+    AssistantAction tied to it survives with conversation=None (SET_NULL) so a resolved or
+    still-pending money-moving proposal is never lost from the audit trail. Never touches the
+    Order/Customer/Product it discussed — only this chat's own scaffolding.
+    """
+    conversation = AssistantConversation.objects.filter(pk=conversation_id, store=store).first()
+    if conversation is None:
+        raise NotFoundError("Conversation not found.")
+    conversation.delete()
 
 
 def _touch(conversation: AssistantConversation) -> None:
@@ -284,6 +327,17 @@ def _live_state(conversation: AssistantConversation) -> str:
     return "\n".join(lines)
 
 
+def _finish(conversation: AssistantConversation, text: str) -> str:
+    """Persists the assistant's closing message for this turn and returns it."""
+    AssistantMessage.objects.create(
+        conversation=conversation,
+        item_type=AssistantMessage.ItemType.MESSAGE,
+        role=AssistantMessage.Role.ASSISTANT,
+        content=text,
+    )
+    return text
+
+
 def run_turn(*, store, user, conversation: AssistantConversation, user_message: str) -> dict[str, Any]:
     AssistantMessage.objects.create(
         conversation=conversation,
@@ -299,20 +353,29 @@ def run_turn(*, store, user, conversation: AssistantConversation, user_message: 
     for _ in range(MAX_TOOL_ROUNDS):
         # Rebuilt every round, so a change made earlier in this same turn is reflected too.
         live_state = _live_state(conversation)
-        response: LLMResponse = send_turn(
-            system_prompt=f"{SYSTEM_PROMPT}\n\n{live_state}" if live_state else SYSTEM_PROMPT,
-            input_items=_input_items(conversation),
-            tools=tools.TOOL_SCHEMAS,
-        )
+        try:
+            response: LLMResponse = send_turn(
+                system_prompt=f"{SYSTEM_PROMPT}\n\n{live_state}" if live_state else SYSTEM_PROMPT,
+                input_items=_input_items(conversation),
+                tools=tools.TOOL_SCHEMAS,
+            )
+        except ApplicationError as exc:
+            # The user's message above is already saved — without this, a failed call left it
+            # sitting in the conversation with no reply and no visible sign anything went wrong,
+            # which is exactly what made a seller retype the same message a few minutes later.
+            # Closing the turn with a real (if apologetic) assistant message means the request
+            # still comes back 200, so the composer behaves like any other successful send.
+            reply_text = _finish(conversation, exc.message)
+            break
+        except Exception:
+            logger.exception("Orbiz AI turn failed unexpectedly")
+            reply_text = _finish(
+                conversation, "Something went wrong on my end — try sending that again."
+            )
+            break
 
         if not response.tool_calls:
-            reply_text = response.content
-            AssistantMessage.objects.create(
-                conversation=conversation,
-                item_type=AssistantMessage.ItemType.MESSAGE,
-                role=AssistantMessage.Role.ASSISTANT,
-                content=reply_text,
-            )
+            reply_text = _finish(conversation, response.content)
             break
 
         for call in response.tool_calls:
@@ -337,12 +400,8 @@ def run_turn(*, store, user, conversation: AssistantConversation, user_message: 
             elif side_effect and side_effect.get("kind") == "action":
                 pending_action_ids.append(side_effect["action_id"])
     else:
-        reply_text = "That took more steps than expected — tell me what you'd like to do next."
-        AssistantMessage.objects.create(
-            conversation=conversation,
-            item_type=AssistantMessage.ItemType.MESSAGE,
-            role=AssistantMessage.Role.ASSISTANT,
-            content=reply_text,
+        reply_text = _finish(
+            conversation, "That took more steps than expected — tell me what you'd like to do next."
         )
 
     _touch(conversation)
@@ -402,6 +461,36 @@ def confirm_action(
             order=order, user=user, message=f"Capture confirmed by {user} via Orbiz AI."
         )
         result_message = f"Captured payment for order {order.number}."
+
+    elif action.action_type == AssistantAction.ActionType.REQUEST_PAYMENT:
+        order = action.order
+        method = payload.get("method")
+        if method == "checkout":
+            payments_services.create_checkout(order_id=order.id, store=store, user=user)
+            tools._record_assistant_note(
+                order=order, user=user, message=f"Pay-now link created by {user} via Orbiz AI."
+            )
+            result_message = f"Pay-now link ready for order {order.number}."
+        elif method == "invoice":
+            payments_services.send_invoice_for_order(
+                order_id=order.id, store=store, user=user, recipient_email=order.customer.email
+            )
+            tools._record_assistant_note(
+                order=order, user=user, message=f"Invoice sent by {user} via Orbiz AI."
+            )
+            result_message = f"Invoice sent for order {order.number}."
+        elif method == "email_link":
+            if payments_services.payment_request_summary(order=order)["kind"] == "none":
+                payments_services.create_checkout(order_id=order.id, store=store, user=user)
+            log = payments_services.email_payment_link(
+                order_id=order.id, store=store, user=user, kind=payment_emails.REQUEST
+            )
+            tools._record_assistant_note(
+                order=order, user=user, message=f"Payment link emailed to {log.recipient} via Orbiz AI."
+            )
+            result_message = f"Payment link emailed to {log.recipient}."
+        else:
+            raise ApplicationError("Pick a payment method first.")
 
     elif action.action_type == AssistantAction.ActionType.IMPORT_PRODUCT:
         product = import_product_from_channel3(

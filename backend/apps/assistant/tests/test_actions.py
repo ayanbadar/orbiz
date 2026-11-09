@@ -7,6 +7,7 @@ from apps.assistant.models import AssistantAction
 from apps.assistant.services import confirm_action, reject_action
 from apps.assistant.tests.base import AssistantTestCase
 from apps.orders.models import Order, OrderEvent
+from apps.payments.models import PaymentCheckout, PaymentInvoice
 from apps.products.models import Product
 
 
@@ -65,6 +66,17 @@ class ProposeOnlyTests(AssistantTestCase):
         self.assertEqual(action.action_type, AssistantAction.ActionType.IMPORT_PRODUCT)
         self.assertEqual(action.payload["channel3_payload"]["title"], "Nike Air Force 1")
         self.assertFalse(Product.objects.filter(sku="NIKE-AF1").exists())
+
+    def test_offer_payment_method_choice_makes_no_service_call(self):
+        order_id = self.confirmed_order()
+        output, side_effect = tools._tool_offer_payment_method_choice(
+            store=self.store, user=self.user, conversation=None, order_id=order_id
+        )
+        self.assertNotIn("error", output)
+        action = AssistantAction.objects.get(pk=side_effect["action_id"])
+        self.assertEqual(action.status, AssistantAction.Status.PENDING)
+        self.assertEqual(action.action_type, AssistantAction.ActionType.REQUEST_PAYMENT)
+        self.assertFalse(PaymentCheckout.objects.filter(order_id=order_id).exists())
 
 
 class ConfirmRejectTests(AssistantTestCase):
@@ -130,6 +142,78 @@ class ConfirmRejectTests(AssistantTestCase):
         product = Product.objects.get(sku="GIFT-1")
         self.assertEqual(str(product.price), "15.00")
         self.assertEqual(product.stock_quantity, 7)
+
+    @patch("apps.payments.services.paypal_client.create_order")
+    def test_confirm_request_payment_with_checkout_method_creates_a_pay_now_link(self, mock_create):
+        mock_create.return_value = {
+            "id": "PP-CHECKOUT-1", "status": "CREATED",
+            "approve_url": "https://sandbox.paypal.com/x", "raw": {},
+        }
+        order_id = self.confirmed_order()
+        action = AssistantAction.objects.create(
+            store=self.store, order_id=order_id, action_type=AssistantAction.ActionType.REQUEST_PAYMENT,
+            payload={}, created_by=self.user,
+        )
+        confirmed = confirm_action(
+            action_id=action.id, store=self.store, user=self.user, overrides={"method": "checkout"}
+        )
+        self.assertEqual(confirmed.status, AssistantAction.Status.CONFIRMED)
+        self.assertEqual(confirmed.payload["method"], "checkout")
+        self.assertTrue(PaymentCheckout.objects.filter(order_id=order_id).exists())
+
+    @patch("apps.payments.services.paypal_client.create_order")
+    def test_confirm_request_payment_with_email_link_method_emails_it(self, mock_create):
+        from apps.notifications.models import EmailLog
+
+        mock_create.return_value = {
+            "id": "PP-CHECKOUT-2", "status": "CREATED",
+            "approve_url": "https://sandbox.paypal.com/x", "raw": {},
+        }
+        order_id = self.confirmed_order()
+        action = AssistantAction.objects.create(
+            store=self.store, order_id=order_id, action_type=AssistantAction.ActionType.REQUEST_PAYMENT,
+            payload={}, created_by=self.user,
+        )
+        confirmed = confirm_action(
+            action_id=action.id, store=self.store, user=self.user, overrides={"method": "email_link"}
+        )
+        self.assertEqual(confirmed.status, AssistantAction.Status.CONFIRMED)
+        self.assertTrue(EmailLog.objects.filter(recipient=self.customer.email).exists())
+
+    @patch("apps.payments.services.paypal_client.get_invoice")
+    @patch("apps.payments.services.paypal_client.send_invoice")
+    @patch("apps.payments.services.paypal_client.create_invoice")
+    def test_confirm_request_payment_with_invoice_method_sends_an_invoice(
+        self, mock_create_invoice, mock_send_invoice, mock_get_invoice
+    ):
+        mock_create_invoice.return_value = {"id": "INV-REQ-1", "raw": {}}
+        mock_get_invoice.return_value = {
+            "id": "INV-REQ-1", "status": "SENT",
+            "detail": {"metadata": {"recipient_view_url": "https://sandbox.paypal.com/invoice"}},
+        }
+        order_id = self.confirmed_order()
+        action = AssistantAction.objects.create(
+            store=self.store, order_id=order_id, action_type=AssistantAction.ActionType.REQUEST_PAYMENT,
+            payload={}, created_by=self.user,
+        )
+        confirmed = confirm_action(
+            action_id=action.id, store=self.store, user=self.user, overrides={"method": "invoice"}
+        )
+        self.assertEqual(confirmed.status, AssistantAction.Status.CONFIRMED)
+        self.assertTrue(PaymentInvoice.objects.filter(order_id=order_id).exists())
+
+    def test_confirm_request_payment_without_a_method_errors_and_stays_pending(self):
+        from apps.common.exceptions import ApplicationError
+
+        order_id = self.confirmed_order()
+        action = AssistantAction.objects.create(
+            store=self.store, order_id=order_id, action_type=AssistantAction.ActionType.REQUEST_PAYMENT,
+            payload={}, created_by=self.user,
+        )
+        with self.assertRaises(ApplicationError):
+            confirm_action(action_id=action.id, store=self.store, user=self.user)
+        action.refresh_from_db()
+        self.assertEqual(action.status, AssistantAction.Status.PENDING)
 
     def test_reject_marks_rejected_without_a_service_call(self):
         order_id = self.paid_order()

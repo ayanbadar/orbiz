@@ -20,14 +20,21 @@ import {
   useRejectAssistantAction,
 } from "@/features/assistant/api/assistant.api";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
-import type { AssistantAction } from "@/features/assistant/types";
+import type { AssistantAction, AssistantPaymentMethod } from "@/features/assistant/types";
 
 const TITLES: Record<AssistantAction["action_type"], (action: AssistantAction) => string> = {
   refund: (action) => `Refund order ${action.order?.number ?? ""}?`,
   capture: (action) => `Capture payment for order ${action.order?.number ?? ""}?`,
   import_product: (action) =>
     `Import "${action.payload.channel3_payload?.title ?? "this product"}" as a new product?`,
+  request_payment: (action) => `How should ${action.order?.number ?? "this order"} be paid?`,
 };
+
+const PAYMENT_METHODS: { method: AssistantPaymentMethod; label: string }[] = [
+  { method: "email_link", label: "Email the pay-now link" },
+  { method: "invoice", label: "Send a PayPal invoice" },
+  { method: "checkout", label: "Give me a pay-now link" },
+];
 
 const STATUS_TONE: Record<AssistantAction["status"], string> = {
   pending: "bg-muted text-foreground",
@@ -46,12 +53,26 @@ export function ActionProposalCard({ action }: { action: AssistantAction }) {
     String(action.payload.stock_quantity ?? ""),
   );
   const [error, setError] = useState("");
+  const [pendingMethod, setPendingMethod] = useState<AssistantPaymentMethod | null>(null);
 
   const isPending = action.status === "pending";
   const isConfirmed = action.status === "confirmed";
   const isRejected = action.status === "rejected";
   const needsProductFields =
     action.action_type === "import_product" && (!sku || !price || !stockQuantity);
+
+  const handleChooseMethod = async (method: AssistantPaymentMethod) => {
+    setError("");
+    setPendingMethod(method);
+    try {
+      await confirmAction.mutateAsync({ id: action.id, overrides: { method } });
+      toast.success("Done.");
+    } catch (confirmError) {
+      setError(getErrorMessage(confirmError, "Could not do that."));
+    } finally {
+      setPendingMethod(null);
+    }
+  };
 
   const handleConfirm = async () => {
     setError("");
@@ -163,27 +184,61 @@ export function ActionProposalCard({ action }: { action: AssistantAction }) {
           </p>
         ) : null}
       </CardContent>
-      <CardFooter className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={handleConfirm}
-          disabled={!isPending || confirmAction.isPending || needsProductFields}
-          className={cn(isConfirmed && "disabled:opacity-100 ring-2 ring-primary/30")}
-        >
-          {confirmAction.isPending ? "Confirming…" : isConfirmed ? "Confirmed" : "Confirm"}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleReject}
-          disabled={!isPending || rejectAction.isPending}
-          className={cn(
-            isRejected && "border-destructive/40 bg-destructive/10 text-destructive disabled:opacity-100",
-          )}
-        >
-          {rejectAction.isPending ? "Rejecting…" : isRejected ? "Rejected" : "Reject"}
-        </Button>
-      </CardFooter>
+      {action.action_type === "request_payment" ? (
+        <CardFooter className="flex flex-wrap items-center gap-2">
+          {PAYMENT_METHODS.map(({ method, label }) => {
+            const chosen = action.payload.method === method;
+            const isWorking = confirmAction.isPending && pendingMethod === method;
+            return (
+              <Button
+                key={method}
+                size="sm"
+                variant={chosen ? "default" : "outline"}
+                onClick={() => void handleChooseMethod(method)}
+                disabled={!isPending || confirmAction.isPending}
+                className={cn(chosen && "disabled:opacity-100 ring-2 ring-primary/30")}
+              >
+                {isWorking ? "Working…" : chosen ? `${label} ✓` : label}
+              </Button>
+            );
+          })}
+          {isPending ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleReject}
+              disabled={rejectAction.isPending}
+              className="text-muted-foreground"
+            >
+              {rejectAction.isPending ? "…" : "Never mind"}
+            </Button>
+          ) : isRejected ? (
+            <span className="text-xs text-muted-foreground">Dismissed</span>
+          ) : null}
+        </CardFooter>
+      ) : (
+        <CardFooter className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={handleConfirm}
+            disabled={!isPending || confirmAction.isPending || needsProductFields}
+            className={cn(isConfirmed && "disabled:opacity-100 ring-2 ring-primary/30")}
+          >
+            {confirmAction.isPending ? "Confirming…" : isConfirmed ? "Confirmed" : "Confirm"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleReject}
+            disabled={!isPending || rejectAction.isPending}
+            className={cn(
+              isRejected && "border-destructive/40 bg-destructive/10 text-destructive disabled:opacity-100",
+            )}
+          >
+            {rejectAction.isPending ? "Rejecting…" : isRejected ? "Rejected" : "Reject"}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }

@@ -34,6 +34,11 @@ class BadGatewayError(ApplicationError):
     default_code = "bad_gateway"
 
 
+class TooManyRequestsError(ApplicationError):
+    status_code = 429
+    default_code = "rate_limited"
+
+
 class ForbiddenError(ApplicationError):
     status_code = 403
     default_code = "permission_denied"

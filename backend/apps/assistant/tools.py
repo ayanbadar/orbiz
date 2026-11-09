@@ -20,7 +20,7 @@ note; propose-only tools create a pending AssistantAction and touch nothing else
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from difflib import SequenceMatcher
 from typing import Any, Callable
@@ -172,6 +172,7 @@ def _resolve_customer(
     name = (name or "").strip()
     email = (email or "").strip()
     phone = (phone or "").strip()
+    notes = notes or ""
     if not name:
         return None, False, None
 
@@ -247,35 +248,69 @@ def _resolve_customer(
 # --- Auto-execute, read-only --------------------------------------------------------
 
 
-# Store-wide lists are capped. Each says how many exist and whether it was cut off — without
-# that, the model read 25 rows as the whole store and gave a customer's count from a partial list.
-STORE_LIST_LIMIT = 25
-CUSTOMER_ORDERS_LIMIT = 100
+# Every store-wide list/search tool is capped AND paginated with this same pattern — applies
+# uniformly to orders, customers, and products, not just one of them. A page reports total_count
+# and, when there's more, next_offset: pass that back as `offset` to get the next page. Before
+# this, a result past the cap was simply gone — the model's own "want me to show the rest?"
+# follow-up had no way to actually fulfil itself, for any of these three domains.
+STORE_LIST_LIMIT = 50  # list_unpaid_orders, list_recent_orders, list_low_stock_products
+SEARCH_RESULT_LIMIT = 15  # find_customers, find_products — narrowing-down searches, not browses
+CUSTOMER_ORDERS_LIMIT = 100  # list_customer_orders — one customer rarely exceeds this
 _UNSETTLED_PAYMENT_STATUSES = (Order.PaymentStatus.UNPAID, Order.PaymentStatus.PENDING)
 
 
-def _list_meta(*, shown: int, total: int, what: str) -> dict[str, Any]:
-    meta: dict[str, Any] = {"total_count": total, "truncated": total > shown}
-    if total > shown:
+def _clamp_offset(offset: int | None) -> int:
+    # Strict mode means an unset optional arg arrives as an explicit None, not an absent key.
+    return max(offset or 0, 0)
+
+
+def _parse_date(value: str | None) -> tuple[date | None, str | None]:
+    """(parsed_date, error) — exactly one is set. None/blank input is not an error."""
+    if not value:
+        return None, None
+    try:
+        return date.fromisoformat(value), None
+    except ValueError:
+        return None, f"'{value}' isn't a date — use YYYY-MM-DD, e.g. 2026-11-01."
+
+
+def _list_meta(*, shown: int, total: int, offset: int, what: str) -> dict[str, Any]:
+    truncated = offset + shown < total
+    meta: dict[str, Any] = {"total_count": total, "truncated": truncated}
+    if truncated:
+        meta["next_offset"] = offset + shown
         meta["note"] = (
-            f"Only {shown} of {total} {what} are listed — this is NOT the full list. Never count "
-            "or summarise from it as if it were complete. For one customer's orders call "
-            "list_customer_orders."
+            f"Showing {shown} of {total} {what} (starting at #{offset + 1}) — this is NOT the "
+            f"full list. To see more, call this same tool again with offset: {offset + shown}. "
+            "Never count or summarise from it as if it were complete."
         )
     return meta
 
 
 def _tool_list_unpaid_orders(
-    *, store, user, conversation, min_days_unpaid: int = 0, **_: Any
+    *,
+    store,
+    user,
+    conversation,
+    min_days_unpaid: int | None = 0,
+    offset: int | None = 0,
+    payment_status: str | None = None,
+    **_: Any,
 ) -> DispatchResult:
-    cutoff = timezone.now() - timedelta(days=max(min_days_unpaid, 0))
-    matching = Order.objects.filter(
-        store=store,
-        payment_status__in=_UNSETTLED_PAYMENT_STATUSES,
-        created_at__lte=cutoff,
-    )
+    offset = _clamp_offset(offset)
+    # Only narrow to one status when the seller specifically asked for it — an unrecognized or
+    # absent value falls back to the combined set, same as before this parameter existed.
+    if payment_status in _UNSETTLED_PAYMENT_STATUSES:
+        statuses: tuple[str, ...] = (payment_status,)
+        what = f"{payment_status} orders"
+    else:
+        statuses = _UNSETTLED_PAYMENT_STATUSES
+        payment_status = None
+        what = "unpaid/pending orders"
+    cutoff = timezone.now() - timedelta(days=max(min_days_unpaid or 0, 0))
+    matching = Order.objects.filter(store=store, payment_status__in=statuses, created_at__lte=cutoff)
     total = matching.count()
-    qs = matching.select_related("customer").order_by("created_at")[:STORE_LIST_LIMIT]
+    qs = matching.select_related("customer").order_by("created_at")[offset : offset + STORE_LIST_LIMIT]
     now = timezone.now()
     orders = [
         {
@@ -293,7 +328,8 @@ def _tool_list_unpaid_orders(
     ]
     return {
         "orders": orders,
-        **_list_meta(shown=len(orders), total=total, what="unpaid/pending orders"),
+        "payment_status_filter": payment_status or "unpaid_and_pending",
+        **_list_meta(shown=len(orders), total=total, offset=offset, what=what),
     }, None
 
 
@@ -319,12 +355,18 @@ def _tool_order_status_summary(*, store, user, conversation, **_: Any) -> Dispat
     }, None
 
 
-def _tool_list_low_stock_products(*, store, user, conversation, **_: Any) -> DispatchResult:
-    qs = Product.objects.filter(
+def _tool_list_low_stock_products(
+    *, store, user, conversation, offset: int | None = 0, **_: Any
+) -> DispatchResult:
+    offset = _clamp_offset(offset)
+    matching = Product.objects.filter(
         store=store, is_active=True, stock_quantity__lte=F("low_stock_threshold")
-    ).order_by("stock_quantity")[:25]
+    )
+    total = matching.count()
+    qs = matching.order_by("stock_quantity")[offset : offset + STORE_LIST_LIMIT]
     products = [
         {
+            "id": p.id,
             "name": p.name,
             "sku": p.sku,
             "stock_quantity": p.stock_quantity,
@@ -332,7 +374,10 @@ def _tool_list_low_stock_products(*, store, user, conversation, **_: Any) -> Dis
         }
         for p in qs
     ]
-    return {"products": products}, None
+    return {
+        "products": products,
+        **_list_meta(shown=len(products), total=total, offset=offset, what="low-stock products"),
+    }, None
 
 
 def _tool_get_order(*, store, user, conversation, order_number: str, **_: Any) -> DispatchResult:
@@ -357,11 +402,33 @@ def _tool_get_order(*, store, user, conversation, order_number: str, **_: Any) -
     }, None
 
 
-def _tool_list_recent_orders(*, store, user, conversation, limit: int = 10, **_: Any) -> DispatchResult:
-    capped = min(max(limit, 1), STORE_LIST_LIMIT)
+def _tool_list_recent_orders(
+    *,
+    store,
+    user,
+    conversation,
+    limit: int | None = 10,
+    offset: int | None = 0,
+    created_after: str | None = None,
+    created_before: str | None = None,
+    **_: Any,
+) -> DispatchResult:
+    offset = _clamp_offset(offset)
+    capped = min(max(limit or 10, 1), STORE_LIST_LIMIT)
+    after, after_error = _parse_date(created_after)
+    if after_error:
+        return {"error": after_error}, None
+    before, before_error = _parse_date(created_before)
+    if before_error:
+        return {"error": before_error}, None
+
     all_orders = Order.objects.filter(store=store)
+    if after:
+        all_orders = all_orders.filter(created_at__date__gte=after)
+    if before:
+        all_orders = all_orders.filter(created_at__date__lte=before)
     total = all_orders.count()
-    qs = all_orders.select_related("customer").order_by("-created_at")[:capped]
+    qs = all_orders.select_related("customer").order_by("-created_at")[offset : offset + capped]
     orders = [
         {
             "order_id": o.id,
@@ -375,21 +442,30 @@ def _tool_list_recent_orders(*, store, user, conversation, limit: int = 10, **_:
         }
         for o in qs
     ]
+    what = "orders in that date range" if (after or before) else "orders in the store"
     return {
         "orders": orders,
-        **_list_meta(shown=len(orders), total=total, what="orders in the store"),
+        **_list_meta(shown=len(orders), total=total, offset=offset, what=what),
     }, None
 
 
-def _tool_find_customers(*, store, user, conversation, query: str, **_: Any) -> DispatchResult:
-    qs = Customer.objects.filter(store=store).filter(
+def _tool_find_customers(
+    *, store, user, conversation, query: str, offset: int | None = 0, **_: Any
+) -> DispatchResult:
+    offset = _clamp_offset(offset)
+    matching = Customer.objects.filter(store=store).filter(
         Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query)
-    )[:10]
+    )
+    total = matching.count()
+    qs = matching.order_by("name")[offset : offset + SEARCH_RESULT_LIMIT]
     customers = [
         {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "notes": c.notes}
         for c in qs
     ]
-    return {"customers": customers}, None
+    return {
+        "customers": customers,
+        **_list_meta(shown=len(customers), total=total, offset=offset, what="matching customers"),
+    }, None
 
 
 def _find_existing_customer(
@@ -446,8 +522,16 @@ def _open_payment_request(order: Order) -> str:
 
 
 def _tool_list_customer_orders(
-    *, store, user, conversation, customer_id: int | None = None, customer: str = "", **_: Any
+    *,
+    store,
+    user,
+    conversation,
+    customer_id: int | None = None,
+    customer: str = "",
+    offset: int | None = 0,
+    **_: Any,
 ) -> DispatchResult:
+    offset = _clamp_offset(offset)
     found, problem = _find_existing_customer(store=store, customer_id=customer_id, query=customer)
     if problem is not None:
         return problem, None
@@ -457,6 +541,8 @@ def _tool_list_customer_orders(
     by_payment_status = dict(
         orders_qs.order_by().values_list("payment_status").annotate(count=Count("id"))
     )
+    # total_orders/by_payment_status always cover every order of this customer's, regardless of
+    # which page of `orders` is shown — only the listed rows themselves are paginated.
     total = sum(by_payment_status.values())
     orders = [
         {
@@ -469,7 +555,7 @@ def _tool_list_customer_orders(
             "fulfilment_status": o.fulfilment_status,
             "open_payment_request": _open_payment_request(o),
         }
-        for o in orders_qs.order_by("-created_at")[:CUSTOMER_ORDERS_LIMIT]
+        for o in orders_qs.order_by("-created_at")[offset : offset + CUSTOMER_ORDERS_LIMIT]
     ]
     return {
         "customer": {
@@ -481,16 +567,22 @@ def _tool_list_customer_orders(
         "total_orders": total,
         "by_payment_status": by_payment_status,
         "orders": orders,
-        **_list_meta(shown=len(orders), total=total, what="orders for this customer"),
+        **_list_meta(shown=len(orders), total=total, offset=offset, what="orders for this customer"),
     }, None
 
 
-def _tool_find_products(*, store, user, conversation, query: str, **_: Any) -> DispatchResult:
-    qs = Product.objects.filter(store=store).filter(
+def _tool_find_products(
+    *, store, user, conversation, query: str, offset: int | None = 0, **_: Any
+) -> DispatchResult:
+    offset = _clamp_offset(offset)
+    matching = Product.objects.filter(store=store).filter(
         Q(name__icontains=query) | Q(sku__icontains=query)
-    ).order_by("name")[:15]
+    )
+    total = matching.count()
+    qs = matching.order_by("name")[offset : offset + SEARCH_RESULT_LIMIT]
     products = [
         {
+            "id": p.id,
             "name": p.name,
             "sku": p.sku,
             "price": str(p.price),
@@ -500,7 +592,10 @@ def _tool_find_products(*, store, user, conversation, query: str, **_: Any) -> D
         }
         for p in qs
     ]
-    return {"products": products}, None
+    return {
+        "products": products,
+        **_list_meta(shown=len(products), total=total, offset=offset, what="matching products"),
+    }, None
 
 
 def _tool_search_channel3_products(*, store, user, conversation, query: str, **_: Any) -> DispatchResult:
@@ -643,7 +738,7 @@ def _tool_transition_order_status(
     conversation,
     order_id: int,
     fulfilment_status: str,
-    allow_unpaid: bool = False,
+    allow_unpaid: bool | None = False,
     **_: Any,
 ) -> DispatchResult:
     order = _order_or_none(store=store, order_id=order_id)
@@ -651,7 +746,7 @@ def _tool_transition_order_status(
         return {"error": "Order not found."}, None
     try:
         order = orders_services.transition_fulfilment(
-            order=order, user=user, fulfilment_status=fulfilment_status, allow_unpaid=allow_unpaid
+            order=order, user=user, fulfilment_status=fulfilment_status, allow_unpaid=bool(allow_unpaid)
         )
     except ApplicationError as exc:
         return {"error": exc.message}, None
@@ -711,10 +806,10 @@ def _tool_create_product(
     name: str,
     sku: str,
     price: str,
-    description: str = "",
-    stock_quantity: int = 0,
-    low_stock_threshold: int = 5,
-    is_active: bool = True,
+    description: str | None = "",
+    stock_quantity: int | None = 0,
+    low_stock_threshold: int | None = 5,
+    is_active: bool | None = True,
     **_: Any,
 ) -> DispatchResult:
     name = (name or "").strip()
@@ -727,16 +822,18 @@ def _tool_create_product(
         price_value = Decimal(str(price))
     except InvalidOperation:
         return {"error": f"Invalid price: {price}"}, None
+    # Neither field below is nullable in the DB, so an explicit None (strict mode's way of
+    # saying "the seller didn't say") falls back to the same defaults the schema advertises.
     try:
         product = products_services.create_product(
             store=store,
             name=name,
             sku=sku,
-            description=description,
+            description=description or "",
             price=price_value,
-            stock_quantity=max(stock_quantity, 0),
-            low_stock_threshold=max(low_stock_threshold, 0),
-            is_active=is_active,
+            stock_quantity=max(stock_quantity or 0, 0),
+            low_stock_threshold=max(low_stock_threshold if low_stock_threshold is not None else 5, 0),
+            is_active=True if is_active is None else is_active,
         )
     except (DjangoValidationError, ApplicationError) as exc:
         return {"error": _error_message(exc)}, None
@@ -937,6 +1034,32 @@ def _tool_propose_refund(
     )
 
 
+def _tool_offer_payment_method_choice(
+    *, store, user, conversation, order_id: int, **_: Any
+) -> DispatchResult:
+    """
+    Not a money-moving proposal (no payload to pre-fill) — just turns an ambiguous "request
+    payment" into a pick-one card instead of a plain-text question. Whichever method the seller
+    picks runs immediately on confirm (services.confirm_action), since checkout/invoice/email
+    links are all already safe to act on directly without a second approval step.
+    """
+    order = _order_or_none(store=store, order_id=order_id)
+    if order is None:
+        return {"error": "Order not found."}, None
+    action = AssistantAction.objects.create(
+        store=store,
+        conversation=conversation,
+        order=order,
+        action_type=AssistantAction.ActionType.REQUEST_PAYMENT,
+        payload={},
+        created_by=user,
+    )
+    return (
+        {"action_id": action.id, "order_number": order.number, "note": "Waiting for the seller to pick a method."},
+        {"kind": "action", "action_id": action.id},
+    )
+
+
 def _tool_propose_capture_checkout(*, store, user, conversation, order_id: int, **_: Any) -> DispatchResult:
     order = _order_or_none(store=store, order_id=order_id)
     if order is None:
@@ -1018,6 +1141,7 @@ _DISPATCH: dict[str, Callable[..., DispatchResult]] = {
     "email_payment_link": _tool_email_payment_link,
     "send_reminder": _tool_send_reminder,
     "cancel_invoice": _tool_cancel_invoice,
+    "offer_payment_method_choice": _tool_offer_payment_method_choice,
     "propose_refund": _tool_propose_refund,
     "propose_capture_checkout": _tool_propose_capture_checkout,
     "propose_import_product": _tool_propose_import_product,
@@ -1036,6 +1160,85 @@ def dispatch(name: str, *, store, user, conversation, arguments: dict[str, Any])
 
 
 # --- Responses API tool schemas -------------------------------------------------------
+#
+# Every schema below is written the plain, readable way — only the fields that are genuinely
+# mandatory are listed in `required`. _to_strict() then rewrites each one into OpenAI's strict
+# function-calling shape before it's exposed as TOOL_SCHEMAS: every object gets
+# additionalProperties: false, every property is added to `required` (strict mode has no
+# concept of "the key is just absent" — only present-with-a-value or present-with-null), and a
+# property that was NOT originally required is made nullable (its type unioned with "null") so
+# the model can still send "no value" for it. This is what makes the model's JSON-schema
+# violations (a required field quietly dropped) impossible instead of merely discouraged —
+# argument-omission was the root cause behind more than one bug this project hit.
+#
+# Consequence for every dispatch function below: a parameter that used to be *absent* when the
+# model skipped it now arrives as an explicit `None`. Each one already normalizes that safely —
+# see the one-line guards next to the handful that didn't.
+
+
+def _nullable(prop: dict[str, Any]) -> dict[str, Any]:
+    prop = dict(prop)
+    current_type = prop.get("type")
+    if isinstance(current_type, list):
+        if "null" not in current_type:
+            prop["type"] = [*current_type, "null"]
+    elif current_type is not None:
+        prop["type"] = [current_type, "null"]
+    # A nullable field with an `enum` needs null added to the enum's own allowed values too —
+    # JSON Schema's `enum` is a flat allow-list independent of `type`, so without this OpenAI
+    # rejects the schema the same way it rejected the missing additionalProperties: the model is
+    # required to send every optional key, including as null, but null alone wouldn't satisfy
+    # an enum that doesn't itself list it.
+    if "enum" in prop and None not in prop["enum"]:
+        prop["enum"] = [*prop["enum"], None]
+    return prop
+
+
+def _schema_types(schema: dict[str, Any]) -> set[str]:
+    """
+    schema["type"] is a plain string on the way in, but _nullable() turns it into a ["x",
+    "null"] union on an optional property *before* _to_strict() recurses into it — so the
+    object/array check below has to recognize both shapes, not just the original bare string.
+    Missing this is exactly what let OpenAI reject update_draft_order's optional `lines`: its
+    now-nullable ["array", "null"] type silently failed a `== "array"` check, so the array
+    branch never ran and its `items` schema never got `additionalProperties: false`.
+    """
+    value = schema.get("type")
+    if isinstance(value, list):
+        return set(value)
+    if isinstance(value, str):
+        return {value}
+    return set()
+
+
+def _to_strict(schema: dict[str, Any]) -> dict[str, Any]:
+    types = _schema_types(schema)
+    if "object" in types and "properties" in schema:
+        original_required = set(schema.get("required", []))
+        properties = {
+            name: _to_strict(prop if name in original_required else _nullable(prop))
+            for name, prop in schema["properties"].items()
+        }
+        return {
+            **schema,
+            "properties": properties,
+            "required": list(schema["properties"].keys()),
+            "additionalProperties": False,
+        }
+    if "array" in types and "items" in schema:
+        return {**schema, "items": _to_strict(schema["items"])}
+    return schema
+
+
+# Shared by every paginated list/search tool below. Never invent this value — only pass the
+# `next_offset` a previous call of the SAME tool returned, to get the page right after it.
+_OFFSET_PROPERTY: dict[str, Any] = {
+    "type": "integer",
+    "description": (
+        "Only set this to a `next_offset` value a previous call of this same tool returned, to "
+        "fetch the page after it. Omit it (or leave it unset) for the first page."
+    ),
+}
 
 _ORDER_LINE_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -1059,8 +1262,10 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "name": "list_unpaid_orders",
         "description": (
             "List the whole store's orders that are unpaid or pending payment, oldest first, "
-            "capped at 25 — check `truncated`. Not for one customer's orders: use "
-            "list_customer_orders for that."
+            "one page at a time — check `truncated` and use `offset` for more. Returns BOTH "
+            "unpaid and pending orders together by default; pass payment_status to narrow to "
+            "just one when the seller's own wording asked for that one specifically. Not for "
+            "one customer's orders: use list_customer_orders for that."
         ),
         "parameters": {
             "type": "object",
@@ -1068,7 +1273,18 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "min_days_unpaid": {
                     "type": "integer",
                     "description": "Only orders unpaid at least this many days. 0 means all unpaid orders.",
-                }
+                },
+                "payment_status": {
+                    "type": "string",
+                    "enum": ["unpaid", "pending"],
+                    "description": (
+                        "Only set this when the seller's wording specifically asked for one: "
+                        "'unpaid' = no payment has been started at all; 'pending' = a payment "
+                        "attempt is open but not yet confirmed. Leave unset for a general "
+                        "question (e.g. 'show me what hasn't been paid') to get both together."
+                    ),
+                },
+                "offset": _OFFSET_PROPERTY,
             },
             "required": [],
         },
@@ -1086,8 +1302,15 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "type": "function",
         "name": "list_low_stock_products",
-        "description": "List active products at or below their low-stock threshold.",
-        "parameters": {"type": "object", "properties": {}, "required": []},
+        "description": (
+            "List active products at or below their low-stock threshold, one page at a time — "
+            "check `truncated` and use `offset` for more."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"offset": _OFFSET_PROPERTY},
+            "required": [],
+        },
     },
     {
         "type": "function",
@@ -1103,22 +1326,38 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "type": "function",
         "name": "list_recent_orders",
         "description": (
-            "List the store's most recently created orders (max 25), across all customers. "
-            "Not for one customer's orders: use list_customer_orders for that."
+            "List the store's orders, most recent first, one page at a time — check `truncated` "
+            "and use `offset` for more. Also the right tool for a date-range question (\"orders "
+            "between Nov 1 and Nov 7\"): set created_after/created_before. Not for one "
+            "customer's orders: use list_customer_orders for that."
         ),
         "parameters": {
             "type": "object",
-            "properties": {"limit": {"type": "integer", "description": "Max 25."}},
+            "properties": {
+                "limit": {"type": "integer", "description": "Page size, max 50."},
+                "offset": _OFFSET_PROPERTY,
+                "created_after": {
+                    "type": "string",
+                    "description": "Only orders created on or after this date, as YYYY-MM-DD.",
+                },
+                "created_before": {
+                    "type": "string",
+                    "description": "Only orders created on or before this date, as YYYY-MM-DD.",
+                },
+            },
             "required": [],
         },
     },
     {
         "type": "function",
         "name": "find_customers",
-        "description": "Search customers by name, email, or phone.",
+        "description": (
+            "Search customers by name, email, or phone, one page at a time — check `truncated` "
+            "and use `offset` for more."
+        ),
         "parameters": {
             "type": "object",
-            "properties": {"query": {"type": "string"}},
+            "properties": {"query": {"type": "string"}, "offset": _OFFSET_PROPERTY},
             "required": ["query"],
         },
     },
@@ -1146,6 +1385,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "The customer's name, email, or phone, as the seller said it.",
                 },
+                "offset": _OFFSET_PROPERTY,
             },
             "required": [],
         },
@@ -1155,12 +1395,13 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "name": "find_products",
         "description": (
             "Search the seller's OWN product catalog (already added or imported) by name or "
-            "SKU. Always try this first for any question about whether the seller has, sells, "
-            "or stocks an item — before ever considering Channel3."
+            "SKU, one page at a time — check `truncated` and use `offset` for more. Always try "
+            "this first for any question about whether the seller has, sells, or stocks an "
+            "item — before ever considering Channel3."
         ),
         "parameters": {
             "type": "object",
-            "properties": {"query": {"type": "string"}},
+            "properties": {"query": {"type": "string"}, "offset": _OFFSET_PROPERTY},
             "required": ["query"],
         },
     },
@@ -1503,6 +1744,25 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "type": "function",
+        "name": "offer_payment_method_choice",
+        "description": (
+            "Use this INSTEAD of asking in plain text whenever the seller wants to request "
+            "payment but hasn't said which way (\"request payment\", \"get paid\", \"follow up "
+            "on the payment\" are not specific enough by themselves). Shows the seller a "
+            "pick-one card — email the pay-now link, send a PayPal invoice, or get a pay-now "
+            "link to share themselves — and whichever they pick runs immediately with no "
+            "further confirmation, since none of the three move money. Never guess which one "
+            "yourself, and never call create_checkout/send_invoice/email_payment_link yourself "
+            "for this case — this tool is what shows the choice."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"order_id": {"type": "integer"}},
+            "required": ["order_id"],
+        },
+    },
+    {
+        "type": "function",
         "name": "propose_refund",
         "description": (
             "Propose refunding an order. This moves real money, so it does NOT execute — it "
@@ -1551,3 +1811,8 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         },
     },
 ]
+
+for _schema in TOOL_SCHEMAS:
+    _schema["strict"] = True
+    _schema["parameters"] = _to_strict(_schema["parameters"])
+del _schema

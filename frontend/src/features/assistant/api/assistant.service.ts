@@ -26,6 +26,10 @@ export class AssistantService {
     return response.data;
   }
 
+  static async deleteConversation(id: number): Promise<void> {
+    await api.delete(`${ROOT}/conversations/${id}/`);
+  }
+
   static async createConversation(): Promise<AssistantConversation> {
     const response = await api.post<AssistantConversation>(`${ROOT}/conversations/`, {});
     return response.data;

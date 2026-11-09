@@ -1,19 +1,33 @@
 import { ArrowUp } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from "react";
 
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/features/auth/utils/form-errors";
 
 const MAX_HEIGHT_PX = 200;
+
+export type AssistantComposerHandle = {
+  /** Fills the composer with text and focuses it, without sending — used by suggestion chips. */
+  fill: (text: string) => void;
+};
 
 type Props = {
   onSend: (message: string) => Promise<void> | void;
   isSending: boolean;
+  handleRef?: Ref<AssistantComposerHandle>;
 };
 
-export function AssistantComposer({ onSend, isSending }: Props) {
+export function AssistantComposer({ onSend, isSending, handleRef }: Props) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(handleRef, () => ({
+    fill: (text: string) => {
+      setValue(text);
+      textareaRef.current?.focus();
+    },
+  }));
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -29,12 +43,16 @@ export function AssistantComposer({ onSend, isSending }: Props) {
       return;
     }
     setError("");
+    // Clear (and the textarea disables via isSending) immediately — the message shows up in the
+    // chat as soon as it's sent, it doesn't sit in the box while the reply is pending. Only put
+    // it back if sending genuinely fails (a real network/offline error — the backend itself now
+    // always closes a turn with a reply, even when the model call fails, so this path is rare).
+    setValue("");
     try {
       await onSend(message);
-      setValue("");
-    } catch {
-      // Leave the seller's typed message in place so they don't lose it.
-      setError("Couldn't send that — try again.");
+    } catch (sendError) {
+      setValue(message);
+      setError(getErrorMessage(sendError, "Couldn't send that — try again."));
     }
   };
 
@@ -50,7 +68,7 @@ export function AssistantComposer({ onSend, isSending }: Props) {
           ref={textareaRef}
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="Paste a customer's message…"
+          placeholder="Ask Orbiz AI, or paste a customer's message…"
           rows={1}
           disabled={isSending}
           aria-label="Message to Orbiz AI"

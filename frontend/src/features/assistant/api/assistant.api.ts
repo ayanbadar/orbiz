@@ -35,6 +35,16 @@ export function useCreateAssistantConversation() {
   });
 }
 
+export function useDeleteAssistantConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => AssistantService.deleteConversation(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ASSISTANT_QUERY_KEYS.conversations() });
+    },
+  });
+}
+
 export function useSendAssistantMessage() {
   const queryClient = useQueryClient();
   return useMutation({
