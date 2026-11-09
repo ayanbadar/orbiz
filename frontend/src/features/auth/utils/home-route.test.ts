@@ -22,8 +22,10 @@ function store(overrides: Partial<Store>): Store {
 }
 
 describe("getHomeRoute", () => {
-  it("sends platform admins to the stores list", () => {
-    expect(getHomeRoute({ isPlatformAdmin: true })).toBe(ROUTES.admin.stores());
+  it("sends platform admins to the platform dashboard", () => {
+    expect(getHomeRoute({ isPlatformAdmin: true })).toBe(
+      ROUTES.admin.dashboard(),
+    );
   });
 
   it("sends unpaid store admins to billing", () => {
@@ -34,15 +36,22 @@ describe("getHomeRoute", () => {
     ).toBe(ROUTES.billing());
   });
 
-  it("sends staff to the first area their role can read", () => {
+  it("sends anyone who can read orders to the dashboard", () => {
     expect(
       getHomeRoute({ store: store({ permissions: ["orders.read"] }) }),
-    ).toBe(ROUTES.orders.root());
+    ).toBe(ROUTES.dashboard());
     expect(
-      getHomeRoute({
-        store: store({ permissions: ["products.read", "orders.read"] }),
-      }),
+      getHomeRoute({ store: store({ is_store_admin: true, permissions: [] }) }),
+    ).toBe(ROUTES.dashboard());
+  });
+
+  it("sends other staff to the first area their role can read", () => {
+    expect(
+      getHomeRoute({ store: store({ permissions: ["products.read"] }) }),
     ).toBe(ROUTES.products.root());
+    expect(
+      getHomeRoute({ store: store({ permissions: ["users.read"] }) }),
+    ).toBe(ROUTES.team.users());
   });
 
   it("falls back to the account page for a role with no readable area", () => {

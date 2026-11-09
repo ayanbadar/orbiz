@@ -1,6 +1,8 @@
 import { Route, Routes } from "react-router-dom";
 
 import { ROUTES } from "@/constants/routes";
+import { AdminDashboardPage } from "@/features/dashboard/components/admin-dashboard-page";
+import { StoreDashboardPage } from "@/features/dashboard/components/store-dashboard-page";
 import { AccountPage } from "@/features/auth/components/account-page";
 import { AdminUsersPage } from "@/features/auth/components/admin-users-page";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
@@ -88,6 +90,7 @@ export function App() {
 
         <Route element={<StoreGate />}>
           <Route element={<RequirePermission permission="orders.read" />}>
+            <Route path={ROUTES.dashboard()} element={<StoreDashboardPage />} />
             <Route path={ROUTES.orders.root()} element={<OrdersPage />} />
             <Route
               path={ROUTES.orders.detail(":id")}
@@ -146,6 +149,10 @@ export function App() {
         </Route>
 
         <Route element={<RequirePlatformAdmin />}>
+          <Route
+            path={ROUTES.admin.dashboard()}
+            element={<AdminDashboardPage />}
+          />
           <Route path={ROUTES.admin.stores()} element={<AdminStoresPage />} />
           <Route path={ROUTES.admin.users()} element={<AdminUsersPage />} />
         </Route>

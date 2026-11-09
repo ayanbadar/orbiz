@@ -144,6 +144,15 @@
   html {
     @apply font-sans;
     font-feature-settings: "calt";
+    /* Keep the scrollbar's space reserved so opening a select/dialog (which locks
+       page scroll and hides the scrollbar) does not shift the layout. */
+    scrollbar-gutter: stable;
+  }
+  /* Radix pads the body by the scrollbar width while scroll is locked. The gutter
+     above already holds that space, so cancel the extra padding. */
+  html body[data-scroll-locked] {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
   }
 }
 
