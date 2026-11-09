@@ -134,11 +134,16 @@ class OrderEvent(models.Model):
         INVOICE_CANCELLED = "invoice_cancelled", "Invoice cancelled"
         PAYMENT_LINK_EMAILED = "payment_link_emailed", "Payment link emailed"
 
+    class Origin(models.TextChoices):
+        SELLER = "seller", "Seller"
+        ASSISTANT = "assistant", "Assistant"
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="events")
     event_type = models.CharField(max_length=32, choices=EventType.choices)
     from_value = models.CharField(max_length=64, blank=True, default="")
     to_value = models.CharField(max_length=64, blank=True, default="")
     message = models.TextField(blank=True, default="")
+    origin = models.CharField(max_length=16, choices=Origin.choices, default=Origin.SELLER)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

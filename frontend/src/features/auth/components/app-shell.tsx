@@ -13,6 +13,11 @@ import { useAuth } from "@/features/auth/context/use-auth";
 import { displayName } from "@/features/auth/utils/display-name";
 import { cn } from "cn";
 
+// Pages that manage their own internal scrolling (a chat-style layout with a sidebar + a
+// pinned composer, like Orbiz AI) need their own full remaining height instead of the normal
+// padded, max-width, page-scrolls layout every other route uses.
+const FULL_BLEED_ROUTES = [ROUTES.assistant.root()];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const logout = useLogout();
@@ -20,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const drawerTitleId = useId();
+  const isFullBleed = FULL_BLEED_ROUTES.includes(location.pathname);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -50,7 +56,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-dvh bg-background text-foreground">
+    <div
+      className={cn(
+        "flex bg-background text-foreground",
+        // A normal page only needs a height FLOOR (min-h-dvh) — it's free to grow taller and let
+        // the whole page scroll. A full-bleed page needs a height CEILING too: without an actual
+        // h-dvh somewhere in the chain, flex-1/min-h-0 further down have nothing fixed to size
+        // against, the tree grows to fit its content instead, and "internal scroll" silently
+        // becomes "scroll the whole page" — which is why the composer stayed below the fold.
+        isFullBleed ? "h-dvh overflow-hidden" : "min-h-dvh",
+      )}
+    >
       <div className="sticky top-0 hidden h-dvh lg:block">
         <AppSidebar />
       </div>
@@ -100,7 +116,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </header>
 
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <main
+          className={cn(
+            isFullBleed
+              ? "min-h-0 flex-1 overflow-hidden"
+              : "mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6 sm:py-10",
+          )}
+        >
           {children}
         </main>
       </div>

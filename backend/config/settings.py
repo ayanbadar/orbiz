@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.orders",
     "apps.payments",
     "apps.dashboard",
+    "apps.assistant",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -167,6 +168,7 @@ REST_FRAMEWORK = {
         "writes": "60/minute",
         "channel3": "30/minute",
         "payments": "30/minute",
+        "assistant": "30/minute",
     },
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
@@ -197,6 +199,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "orders", "description": "Draft and confirmed orders, stock, and status."},
         {"name": "payments", "description": "PayPal Sandbox checkout, capture, and webhooks."},
         {"name": "dashboard", "description": "Store and platform analytics summaries."},
+        {"name": "assistant", "description": "Orbiz AI — chat, drafts, and proposed actions."},
     ],
 }
 
@@ -214,6 +217,14 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 CHANNEL3_API_KEY = env("CHANNEL3_API_KEY", default="")
 CHANNEL3_BASE_URL = env("CHANNEL3_BASE_URL", default="https://api.trychannel3.com")
+
+# Orbiz AI (server-side only — never expose in VITE_*)
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_API_BASE = env("OPENAI_API_BASE", default="https://api.openai.com/v1")
+ASSISTANT_MODEL = env("ASSISTANT_MODEL", default="gpt-5-mini")
+# "low" keeps GPT-5-family tool-choice reasoning without "medium"'s latency; "minimal" is faster
+# but trades away tool-choice accuracy. Empty string drops the field for non-reasoning models.
+ASSISTANT_REASONING_EFFORT = env("ASSISTANT_REASONING_EFFORT", default="low")
 
 # PayPal Sandbox (server-side only — never expose in VITE_*)
 PAYPAL_CLIENT_ID = env("PAYPAL_CLIENT_ID", default="")
