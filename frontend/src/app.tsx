@@ -4,12 +4,14 @@ import { ROUTES } from "@/constants/routes";
 import { AssistantPage } from "@/features/assistant/components/assistant-page";
 import { AccountPage } from "@/features/auth/components/account-page";
 import { AdminUsersPage } from "@/features/auth/components/admin-users-page";
+import { AppShell } from "@/features/auth/components/app-shell";
 import { ForgotPasswordPage } from "@/features/auth/components/forgot-password-page";
 import { ResetPasswordPage } from "@/features/auth/components/reset-password-page";
 import {
   GuestOnly,
   HomeRedirect,
   ProtectedLayout,
+  RequireAuth,
   RequirePermission,
   RequirePlatformAdmin,
   RequireStoreAdmin,
