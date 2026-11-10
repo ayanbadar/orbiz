@@ -7,12 +7,13 @@ export function OrderTimeline({ events }: { events: OrderEvent[] }) {
   }
 
   return (
-    <ul className="space-y-3">
+    <ol className="relative space-y-6 border-l-2 border-border pl-6">
       {events.map((event) => (
-        <li
-          key={event.id}
-          className="rounded-[24px] bg-card px-4 py-3 text-sm ring-1 ring-border"
-        >
+        <li key={event.id} className="relative text-sm">
+          <span
+            aria-hidden
+            className="absolute top-1.5 -left-[1.95rem] size-3 rounded-full bg-primary ring-4 ring-background"
+          />
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="font-semibold capitalize text-foreground">
               {event.event_type.replaceAll("_", " ")}
@@ -33,6 +34,6 @@ export function OrderTimeline({ events }: { events: OrderEvent[] }) {
           ) : null}
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }

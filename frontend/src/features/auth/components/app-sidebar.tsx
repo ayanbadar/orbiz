@@ -6,18 +6,24 @@ import {
   ShieldCheck,
   Store as StoreIcon,
   Sparkles,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   UserRound,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
-import { SHELL_TOP_BAR_CLASS } from "@/features/auth/components/shell-layout";
+import { useLogout } from "@/features/auth/api/auth.api";
+import { useAuth } from "@/features/auth/context/use-auth";
 import { usePermissions } from "@/features/auth/hooks/use-permissions";
+import { displayName } from "@/features/auth/utils/display-name";
 import { cn } from "cn";
 
 type NavItem = {
@@ -82,6 +88,13 @@ const STORE_NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const ACCOUNT_NAV_ITEM: NavItem = {
+  to: ROUTES.account(),
+  label: "Account",
+  icon: UserRound,
+  end: true,
+};
+
 const PLATFORM_NAV_ITEMS: NavItem[] = [
   { to: ROUTES.admin.dashboard(), label: "Dashboard", icon: LayoutDashboard },
   { to: ROUTES.admin.stores(), label: "Stores", icon: StoreIcon },
@@ -91,18 +104,23 @@ const PLATFORM_NAV_ITEMS: NavItem[] = [
 function SidebarNavLink({
   item,
   onNavigate,
+  collapsed = false,
 }: {
   item: NavItem;
   onNavigate?: () => void;
+  collapsed?: boolean;
 }) {
   return (
     <NavLink
       to={item.to}
       end={item.end}
       onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         cn(
-          "relative flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-colors",
+          "relative flex items-center gap-3 rounded-lg py-3 text-sm font-semibold transition-colors",
+          collapsed ? "justify-center px-0" : "px-4",
           isActive
             ? "bg-muted text-foreground"
             : "text-body hover:bg-secondary hover:text-foreground",
@@ -118,7 +136,7 @@ function SidebarNavLink({
             />
           ) : null}
           <item.icon className="size-4 shrink-0" aria-hidden />
-          {item.label}
+          {collapsed ? null : item.label}
         </>
       )}
     </NavLink>
@@ -130,6 +148,9 @@ type AppSidebarProps = {
   onClose?: () => void;
   onNavigate?: () => void;
   className?: string;
+  /** Icon-only rail (desktop only). */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 };
 
 export function AppSidebar({
@@ -137,24 +158,44 @@ export function AppSidebar({
   onClose,
   onNavigate,
   className,
+  collapsed: collapsedProp = false,
+  onToggleCollapse,
 }: AppSidebarProps) {
+  const collapsed = collapsedProp && !mobile;
+  const { user } = useAuth();
+  const logout = useLogout();
+  const navigate = useNavigate();
+  const onSignOut = async () => {
+    await logout.mutateAsync();
+    toast.success("Signed out.");
+    navigate(ROUTES.signIn(), { replace: true });
+  };
   const { store, can, isStoreAdmin, isPlatformAdmin } = usePermissions();
-  const navItems = isPlatformAdmin
-    ? PLATFORM_NAV_ITEMS
-    : STORE_NAV_ITEMS.filter((item) => {
-        if (item.storeAdminOnly) return isStoreAdmin;
-        return item.permission ? can(item.permission) : true;
-      });
+  const navItems = [
+    ...(isPlatformAdmin
+      ? PLATFORM_NAV_ITEMS
+      : STORE_NAV_ITEMS.filter((item) => {
+          if (item.storeAdminOnly) return isStoreAdmin;
+          return item.permission ? can(item.permission) : true;
+        })),
+    ACCOUNT_NAV_ITEM,
+  ];
 
   return (
     <aside
       className={cn(
-        "flex h-full w-[15.5rem] shrink-0 flex-col border-r border-border bg-card text-foreground",
+        "flex h-full shrink-0 flex-col border-r border-border bg-card text-foreground transition-[width] duration-200",
+        collapsed ? "w-[4.5rem]" : "w-[15.5rem]",
         className,
       )}
       aria-label="Workspace"
     >
-      <div className={cn(SHELL_TOP_BAR_CLASS, "justify-between gap-2 px-4")}>
+      <div
+        className={cn(
+          "flex h-16 shrink-0 items-center gap-2 px-4",
+          collapsed ? "justify-center px-0" : "justify-between",
+        )}
+      >
         <NavLink
           to={ROUTES.root()}
           className="inline-flex"
@@ -174,9 +215,36 @@ export function AppSidebar({
             <X className="size-5" />
           </Button>
         ) : null}
+        {!mobile && onToggleCollapse && !collapsed ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9 rounded-full"
+            aria-label="Collapse sidebar"
+            onClick={onToggleCollapse}
+          >
+            <PanelLeftClose className="size-4" />
+          </Button>
+        ) : null}
       </div>
 
-      {isPlatformAdmin ? (
+      {collapsed ? (
+        onToggleCollapse ? (
+          <div className="flex justify-center pb-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 rounded-full"
+              aria-label="Expand sidebar"
+              onClick={onToggleCollapse}
+            >
+              <PanelLeftOpen className="size-4" />
+            </Button>
+          </div>
+        ) : null
+      ) : isPlatformAdmin ? (
         <div className="space-y-0.5 px-4 pb-3">
           <p className="text-sm font-semibold text-foreground">
             Platform admin
@@ -202,20 +270,38 @@ export function AppSidebar({
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-3">
         {navItems.map((item) => (
-          <SidebarNavLink key={item.to} item={item} onNavigate={onNavigate} />
+          <SidebarNavLink
+            key={item.to}
+            item={item}
+            onNavigate={onNavigate}
+            collapsed={collapsed}
+          />
         ))}
       </nav>
 
       <div className="mt-auto border-t border-border px-3 py-4">
-        <SidebarNavLink
-          item={{
-            to: ROUTES.account(),
-            label: "Account",
-            icon: UserRound,
-            end: true,
+        {user && !collapsed ? (
+          <p
+            className="truncate px-4 pt-3 text-sm text-body"
+            title={displayName(user)}
+          >
+            {displayName(user)}
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={logout.isPending}
+          onClick={() => {
+            void onSignOut();
           }}
-          onNavigate={onNavigate}
-        />
+          title={collapsed ? "Sign out" : undefined}
+          aria-label="Sign out"
+          className="mt-2 h-10 w-full rounded-[24px] text-sm font-semibold"
+        >
+          <LogOut className="size-4" aria-hidden />
+          {collapsed ? null : logout.isPending ? "Signing out…" : "Sign out"}
+        </Button>
       </div>
     </aside>
   );

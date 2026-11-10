@@ -1,19 +1,23 @@
+import {
+  ChevronRight,
+  ClipboardList,
+  Mail,
+  Pencil,
+  Phone,
+  StickyNote,
+  UserRound,
+} from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { FormattedTime } from "@/components/formatted-time";
 import { PageBackLink } from "@/components/page-back-link";
 import { QueryState } from "@/components/query-state";
-import { StatTile } from "@/components/stat-tile";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
+import { EditCustomerDialog } from "@/features/customers/components/edit-customer-dialog";
 import { useCustomer } from "@/features/customers/api/customers.api";
 import type { CustomerSummary } from "@/features/customers/types";
 import { useOrders } from "@/features/orders/api/orders.api";
@@ -36,7 +40,10 @@ export function CustomerDetailPage() {
       <QueryState
         isLoading={customerQuery.isLoading}
         isError={customerQuery.isError}
-        errorMessage={getErrorMessage(customerQuery.error, "Customer not found.")}
+        errorMessage={getErrorMessage(
+          customerQuery.error,
+          "Customer not found.",
+        )}
         onRetry={() => {
           void customerQuery.refetch();
         }}
@@ -49,89 +56,185 @@ export function CustomerDetailPage() {
   );
 }
 
+function initials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
+
+function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1 px-6 py-4">
+      <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 function CustomerProfile({ customer }: { customer: CustomerSummary }) {
-  const contact = [customer.email, customer.phone].filter(Boolean).join(" · ");
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 space-y-1.5">
-          <h1 className="text-[28px] font-semibold tracking-tight text-foreground sm:text-[32px]">
-            {customer.name}
-          </h1>
-          {contact ? <p className="text-body">{contact}</p> : null}
+      <EditCustomerDialog
+        customer={customer}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+      <header className="overflow-hidden rounded-[24px] bg-card ring-1 ring-border">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <span
+              aria-hidden
+              className="grid size-16 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground"
+            >
+              {initials(customer.name)}
+            </span>
+            <div className="min-w-0 space-y-2">
+              <h1 className="truncate text-[28px] leading-none font-semibold tracking-tight text-foreground sm:text-[32px]">
+                {customer.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-body">
+                {customer.email ? (
+                  <a
+                    href={`mailto:${customer.email}`}
+                    className="inline-flex items-center gap-1.5 hover:underline"
+                  >
+                    <Mail className="size-4" aria-hidden />
+                    {customer.email}
+                  </a>
+                ) : null}
+                {customer.phone ? (
+                  <a
+                    href={`tel:${customer.phone}`}
+                    className="inline-flex items-center gap-1.5 hover:underline"
+                  >
+                    <Phone className="size-4" aria-hidden />
+                    {customer.phone}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="cta"
+            onClick={() => setEditOpen(true)}
+          >
+            <Pencil className="size-4" aria-hidden />
+            Edit
+          </Button>
         </div>
-        <Button asChild variant="secondary" size="cta">
-          <Link to={ROUTES.customers.edit(customer.id)}>Edit</Link>
-        </Button>
+
+        <dl className="grid grid-cols-2 divide-x divide-y divide-border border-t border-border bg-muted/40 sm:grid-cols-4 sm:divide-y-0">
+          <Stat label="Orders">
+            <span className="text-lg font-semibold tabular-nums">
+              {customer.order_count}
+            </span>
+          </Stat>
+          <Stat label="Open orders">
+            <span className="text-lg font-semibold tabular-nums">
+              {customer.open_order_count}
+            </span>
+          </Stat>
+          <Stat label="Last order">
+            {customer.last_order_at ? (
+              <FormattedTime
+                value={customer.last_order_at}
+                variant="relative"
+                className="text-sm font-medium"
+              />
+            ) : (
+              <span className="text-sm text-muted-foreground">None yet</span>
+            )}
+          </Stat>
+          <Stat label="Customer since">
+            <FormattedTime
+              value={customer.created_at}
+              variant="date"
+              className="text-sm font-medium"
+            />
+          </Stat>
+        </dl>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile
-          label="Orders"
-          value={String(customer.order_count)}
-          valueClassName="tabular-nums"
-        />
-        <StatTile
-          label="Last order"
-          value={
-            customer.last_order_at ? (
-              <FormattedTime value={customer.last_order_at} variant="relative" />
-            ) : (
-              "None yet"
-            )
-          }
-        />
-        <StatTile
-          label="Customer since"
-          value={<FormattedTime value={customer.created_at} variant="date" />}
-        />
-      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <RecentOrders customer={customer} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="rounded-[24px] ring-0">
-          <CardHeader>
-            <CardTitle>Contact</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {customer.email ? (
-              <a
-                href={`mailto:${customer.email}`}
-                className="block text-foreground underline-offset-4 hover:underline"
-              >
-                {customer.email}
-              </a>
-            ) : (
-              <p className="text-muted-foreground">
-                No email yet. Add one to send PayPal payment links and order
-                confirmations.
-              </p>
-            )}
-            {customer.phone ? (
-              <a
-                href={`tel:${customer.phone}`}
-                className="block text-foreground underline-offset-4 hover:underline"
-              >
-                {customer.phone}
-              </a>
-            ) : null}
-          </CardContent>
-        </Card>
-        <Card className="rounded-[24px] ring-0">
-          <CardHeader>
-            <CardTitle>Internal notes</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {customer.notes ? (
-              <p className="whitespace-pre-wrap text-body">{customer.notes}</p>
-            ) : (
-              <p className="text-muted-foreground">No notes yet.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <aside className="space-y-6">
+          <Card className="rounded-[24px] ring-1 ring-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <UserRound
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
+                />
+                Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {customer.email ? (
+                <a
+                  href={`mailto:${customer.email}`}
+                  className="flex items-center gap-2 break-all text-foreground hover:underline"
+                >
+                  <Mail
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                  {customer.email}
+                </a>
+              ) : (
+                <p className="rounded-xl bg-muted/50 p-3 text-muted-foreground">
+                  No email yet. Add one to send PayPal payment links and order
+                  confirmations.
+                </p>
+              )}
+              {customer.phone ? (
+                <a
+                  href={`tel:${customer.phone}`}
+                  className="flex items-center gap-2 text-foreground hover:underline"
+                >
+                  <Phone
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                  {customer.phone}
+                </a>
+              ) : null}
+            </CardContent>
+          </Card>
 
-      <RecentOrders customer={customer} />
+          <Card className="rounded-[24px] ring-1 ring-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <StickyNote
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
+                />
+                Internal notes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {customer.notes ? (
+                <p className="rounded-xl bg-muted/50 p-3 whitespace-pre-wrap text-foreground">
+                  {customer.notes}
+                </p>
+              ) : (
+                <p className="text-muted-foreground">No notes yet.</p>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
     </>
   );
 }
@@ -145,62 +248,83 @@ function RecentOrders({ customer }: { customer: CustomerSummary }) {
   const orders = ordersQuery.data?.results ?? [];
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Recent orders</h2>
-        {customer.order_count > 0 ? (
-          <Link
-            to={ROUTES.orders.forCustomer(customer.id)}
-            className="text-sm font-semibold text-foreground underline-offset-4 hover:underline"
-          >
-            View all {customer.order_count} in Orders
-          </Link>
-        ) : null}
-      </div>
-      <QueryState
-        isLoading={ordersQuery.isLoading}
-        isError={ordersQuery.isError}
-        errorMessage={getErrorMessage(ordersQuery.error, "Failed to load orders.")}
-        onRetry={() => {
-          void ordersQuery.refetch();
-        }}
-      >
-        {orders.length === 0 ? (
-          <Card className="rounded-[24px] ring-0">
-            <CardHeader>
-              <CardTitle>No orders yet</CardTitle>
-              <CardDescription>
+    <Card className="min-w-0 rounded-[24px] ring-1 ring-border">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardList
+              className="size-4 text-muted-foreground"
+              aria-hidden
+            />
+            Recent orders
+          </CardTitle>
+          {customer.order_count > 0 ? (
+            <Link
+              to={ROUTES.orders.forCustomer(customer.id)}
+              className="text-sm font-semibold text-foreground underline-offset-4 hover:underline"
+            >
+              View all {customer.order_count}
+            </Link>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={ordersQuery.isLoading}
+          isError={ordersQuery.isError}
+          errorMessage={getErrorMessage(
+            ordersQuery.error,
+            "Failed to load orders.",
+          )}
+          onRetry={() => {
+            void ordersQuery.refetch();
+          }}
+        >
+          {orders.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl bg-muted/50 px-4 py-10 text-center">
+              <ClipboardList
+                className="size-8 text-muted-foreground"
+                aria-hidden
+              />
+              <p className="font-semibold">No orders yet</p>
+              <p className="text-sm text-muted-foreground">
                 Orders you create for {customer.name} show here.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <ul className="space-y-2">
-            {orders.map((order) => (
-              <li key={order.id}>
-                <Link
-                  to={ROUTES.orders.detail(order.id)}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-[24px] bg-card px-4 py-3 text-sm ring-1 ring-border transition-colors hover:bg-muted/60"
-                >
-                  <span className="font-semibold">{order.number}</span>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <OrderStatusBadge status={order.fulfilment_status} />
-                    <PaymentStatusBadge status={order.payment_status} />
-                  </span>
-                  <span className="tabular-nums">
-                    {order.currency} {order.total}
-                  </span>
-                  <FormattedTime
-                    value={order.created_at}
-                    variant="relative"
-                    className="text-xs text-muted-foreground"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </QueryState>
-    </section>
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {orders.map((order) => (
+                <li key={order.id}>
+                  <Link
+                    to={ROUTES.orders.detail(order.id)}
+                    className="-mx-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl px-2 py-3 text-sm transition-colors hover:bg-muted/60"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{order.number}</p>
+                      <FormattedTime
+                        value={order.created_at}
+                        variant="relative"
+                        className="text-xs text-muted-foreground"
+                      />
+                    </div>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <OrderStatusBadge status={order.fulfilment_status} />
+                      <PaymentStatusBadge status={order.payment_status} />
+                    </span>
+                    <span className="min-w-24 text-right font-semibold tabular-nums">
+                      {order.currency} {order.total}
+                    </span>
+                    <ChevronRight
+                      className="size-4 text-muted-foreground"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </QueryState>
+      </CardContent>
+    </Card>
   );
 }

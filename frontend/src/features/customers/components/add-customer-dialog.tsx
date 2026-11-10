@@ -14,10 +14,16 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (customer: CustomerSummary) => void;
+  description?: string;
 };
 
 /** Create a customer without leaving the current screen (e.g. the order form). */
-export function AddCustomerDialog({ open, onOpenChange, onCreated }: Props) {
+export function AddCustomerDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  description = "They are selected on this order once saved.",
+}: Props) {
   const createCustomer = useCreateCustomer();
 
   return (
@@ -25,9 +31,7 @@ export function AddCustomerDialog({ open, onOpenChange, onCreated }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add customer</DialogTitle>
-          <DialogDescription>
-            They are selected on this order once saved.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {/* Rendered only while open, so each opening starts with an empty form. */}
         {open ? (

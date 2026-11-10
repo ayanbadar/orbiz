@@ -6,16 +6,15 @@ import {
   parseAsStringLiteral,
   useQueryStates,
 } from "nuqs";
-import { useDeferredValue, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useDeferredValue, useMemo, useState } from "react";
 
 import { FilterChip } from "@/components/filter-chip";
 import { DEFAULT_PAGE_SIZE } from "@/components/pagination";
 import { ResourceListChrome } from "@/components/resource-list-chrome";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/features/auth/utils/form-errors";
 import { useCustomers } from "@/features/customers/api/customers.api";
+import { AddCustomerDialog } from "@/features/customers/components/add-customer-dialog";
 import { CustomersGrid } from "@/features/customers/components/customers-grid";
 import type { CustomerListOrdering } from "@/features/customers/types";
 import {
@@ -43,6 +42,7 @@ const NO_ORDERS = { orders_min: null, orders_max: "0" } as const;
 const REPEAT_CUSTOMERS = { orders_min: "2", orders_max: null } as const;
 
 export function CustomersPage() {
+  const [addOpen, setAddOpen] = useState(false);
   const storeGate = useStoreGate();
   const { store, storeReady } = storeGate;
   const [filters, setFilters] = useQueryStates({
@@ -109,12 +109,12 @@ export function CustomersPage() {
   } = getResourceListState(customersQuery, storeGate);
   const hasActiveFilters = Boolean(
     filters.q ||
-      filters.name ||
-      filters.email ||
-      filters.phone ||
-      filters.orders_min ||
-      filters.orders_max ||
-      filters.needs_attention,
+    filters.name ||
+    filters.email ||
+    filters.phone ||
+    filters.orders_min ||
+    filters.orders_max ||
+    filters.needs_attention,
   );
   const noOrdersActive =
     filters.orders_min === NO_ORDERS.orders_min &&
@@ -141,112 +141,120 @@ export function CustomersPage() {
   };
 
   const addCustomerButton = (
-    <Button asChild size="cta">
-      <Link to={ROUTES.customers.new()}>Add customer</Link>
+    <Button type="button" size="cta" onClick={() => setAddOpen(true)}>
+      Add customer
     </Button>
   );
 
   return (
-    <ResourceListChrome
-      title="Customers"
-      subtitle={
-        store
-          ? `${store.name} · contacts, order history, and notes`
-          : "Customers for your store workspace."
-      }
-      actions={addCustomerButton}
-      searchValue={filters.q}
-      searchPlaceholder="Search name, email, or phone"
-      onSearchChange={(q) => {
-        void setFilters({ q, page: 1 });
-      }}
-      hasActiveFilters={hasActiveFilters}
-      onClearFilters={clearFilters}
-      filters={
-        <>
-          <FilterChip
-            active={repeatActive}
-            onClick={() => {
-              void setFilters({
-                ...(repeatActive ? clearOrderCount : REPEAT_CUSTOMERS),
-                page: 1,
-              });
-            }}
-          >
-            Repeat customers
-          </FilterChip>
-          <FilterChip
-            active={noOrdersActive}
-            onClick={() => {
-              void setFilters({
-                ...(noOrdersActive ? clearOrderCount : NO_ORDERS),
-                page: 1,
-              });
-            }}
-          >
-            No orders yet
-          </FilterChip>
-          <FilterChip
-            active={filters.needs_attention}
-            onClick={() => {
-              void setFilters({
-                needs_attention: !filters.needs_attention,
-                page: 1,
-              });
-            }}
-          >
-            Needs attention
-          </FilterChip>
-        </>
-      }
-      isLoading={showInitialLoading}
-      isError={customersQuery.isError}
-      errorMessage={getErrorMessage(
-        customersQuery.error,
-        "Failed to load customers.",
-      )}
-      onRetry={() => {
-        void customersQuery.refetch();
-      }}
-      isRefetching={isRefetching}
-      showEmpty={showEmpty}
-      empty={
-        hasActiveFilters ? (
-          <p
-            className="max-w-sm text-center text-sm text-muted-foreground"
-            role="status"
-          >
-            No customers match these filters.
-          </p>
-        ) : (
-          <div className="max-w-sm space-y-3 text-center">
-            <p className="text-lg font-semibold text-foreground">
-              No customers yet
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Add the people who message you to order. Their email lets Orbiz
-              send PayPal payment links and confirmations.
-            </p>
-            {addCustomerButton}
-          </div>
-        )
-      }
-      showPagination={showPagination}
-      page={filters.page}
-      totalCount={totalCount}
-      onPageChange={(page) => {
-        void setFilters({ page });
-      }}
-    >
-      <CustomersGrid
-        customers={rows}
-        ordering={filters.ordering}
-        onOrderingChange={(ordering) => {
-          void setFilters({ ordering, page: 1 });
+    <>
+      <ResourceListChrome
+        title="Customers"
+        subtitle={
+          store
+            ? `${store.name} · contacts, order history, and notes`
+            : "Customers for your store workspace."
+        }
+        actions={addCustomerButton}
+        searchValue={filters.q}
+        searchPlaceholder="Search name, email, or phone"
+        onSearchChange={(q) => {
+          void setFilters({ q, page: 1 });
         }}
-        filterModel={filterModel}
-        onFilterModelChange={onFilterModelChange}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        filters={
+          <>
+            <FilterChip
+              active={repeatActive}
+              onClick={() => {
+                void setFilters({
+                  ...(repeatActive ? clearOrderCount : REPEAT_CUSTOMERS),
+                  page: 1,
+                });
+              }}
+            >
+              Repeat customers
+            </FilterChip>
+            <FilterChip
+              active={noOrdersActive}
+              onClick={() => {
+                void setFilters({
+                  ...(noOrdersActive ? clearOrderCount : NO_ORDERS),
+                  page: 1,
+                });
+              }}
+            >
+              No orders yet
+            </FilterChip>
+            <FilterChip
+              active={filters.needs_attention}
+              onClick={() => {
+                void setFilters({
+                  needs_attention: !filters.needs_attention,
+                  page: 1,
+                });
+              }}
+            >
+              Needs attention
+            </FilterChip>
+          </>
+        }
+        isLoading={showInitialLoading}
+        isError={customersQuery.isError}
+        errorMessage={getErrorMessage(
+          customersQuery.error,
+          "Failed to load customers.",
+        )}
+        onRetry={() => {
+          void customersQuery.refetch();
+        }}
+        isRefetching={isRefetching}
+        showEmpty={showEmpty}
+        empty={
+          hasActiveFilters ? (
+            <p
+              className="max-w-sm text-center text-sm text-muted-foreground"
+              role="status"
+            >
+              No customers match these filters.
+            </p>
+          ) : (
+            <div className="max-w-sm space-y-3 text-center">
+              <p className="text-lg font-semibold text-foreground">
+                No customers yet
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Add the people who message you to order. Their email lets Orbiz
+                send PayPal payment links and confirmations.
+              </p>
+              {addCustomerButton}
+            </div>
+          )
+        }
+        showPagination={showPagination}
+        page={filters.page}
+        totalCount={totalCount}
+        onPageChange={(page) => {
+          void setFilters({ page });
+        }}
+      >
+        <CustomersGrid
+          customers={rows}
+          ordering={filters.ordering}
+          onOrderingChange={(ordering) => {
+            void setFilters({ ordering, page: 1 });
+          }}
+          filterModel={filterModel}
+          onFilterModelChange={onFilterModelChange}
+        />
+      </ResourceListChrome>
+      <AddCustomerDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        description="Add someone who orders from you."
+        onCreated={() => undefined}
       />
-    </ResourceListChrome>
+    </>
   );
 }

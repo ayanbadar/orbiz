@@ -1,16 +1,10 @@
 import { Menu } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
-import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/sonner";
 import { ROUTES } from "@/constants/routes";
-import { useLogout } from "@/features/auth/api/auth.api";
 import { AppSidebar } from "@/features/auth/components/app-sidebar";
-import { SHELL_TOP_BAR_CLASS } from "@/features/auth/components/shell-layout";
-import { useAuth } from "@/features/auth/context/use-auth";
-import { displayName } from "@/features/auth/utils/display-name";
 import { cn } from "cn";
 
 // Pages that manage their own internal scrolling (a chat-style layout with a sidebar + a
@@ -19,11 +13,26 @@ import { cn } from "cn";
 const FULL_BLEED_ROUTES = [ROUTES.assistant.root()];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const logout = useLogout();
-  const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("orbiz.sidebar.collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("orbiz.sidebar.collapsed", next ? "1" : "0");
+      } catch {
+        // ignore storage failures
+      }
+      return next;
+    });
+  };
   const drawerTitleId = useId();
   const isFullBleed = FULL_BLEED_ROUTES.includes(location.pathname);
 
@@ -49,12 +58,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [mobileOpen]);
 
-  const onSignOut = async () => {
-    await logout.mutateAsync();
-    toast.success("Signed out.");
-    navigate(ROUTES.signIn(), { replace: true });
-  };
-
   return (
     <div
       className={cn(
@@ -68,59 +71,28 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
     >
       <div className="sticky top-0 hidden h-dvh lg:block">
-        <AppSidebar />
+        <AppSidebar collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header
-          className={cn(
-            SHELL_TOP_BAR_CLASS,
-            "sticky top-0 z-20 justify-between gap-3 bg-card px-4 sm:px-6",
-          )}
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="fixed top-3 left-3 z-20 size-10 rounded-full shadow-sm lg:hidden"
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          aria-controls={drawerTitleId}
+          onClick={() => setMobileOpen(true)}
         >
-          <div className="flex items-center gap-2 lg:invisible lg:w-0 lg:overflow-hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-10 rounded-full"
-              aria-label="Open menu"
-              aria-expanded={mobileOpen}
-              aria-controls={drawerTitleId}
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="size-5" />
-            </Button>
-            <Link to={ROUTES.root()} className="inline-flex">
-              <Logo className="h-9 w-9" />
-            </Link>
-          </div>
-
-          <nav className="ml-auto flex flex-wrap items-center gap-2 sm:gap-4">
-            {user ? (
-              <span className="hidden text-sm text-body sm:inline">
-                {displayName(user)}
-              </span>
-            ) : null}
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={logout.isPending}
-              onClick={() => {
-                void onSignOut();
-              }}
-              className="h-10 rounded-[24px] px-4 text-sm font-semibold"
-            >
-              {logout.isPending ? "Signing out…" : "Sign out"}
-            </Button>
-          </nav>
-        </header>
+          <Menu className="size-5" />
+        </Button>
 
         <main
           className={cn(
             isFullBleed
               ? "min-h-0 flex-1 overflow-hidden"
-              : "mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6 sm:py-10",
+              : "mx-auto w-full max-w-[1200px] flex-1 px-4 pt-16 pb-8 sm:px-6 sm:py-10 lg:pt-10",
           )}
         >
           {children}
