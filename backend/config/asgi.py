@@ -1,5 +1,5 @@
 """
-ASGI config for Meraki Interiors.
+ASGI config for Orbiz Interiors.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 """

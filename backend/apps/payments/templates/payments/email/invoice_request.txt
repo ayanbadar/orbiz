@@ -1,0 +1,22 @@
+{% autoescape off %}{% if sandbox %}*** PAYPAL SANDBOX TEST - no real money moves ***
+
+{% endif %}{% if is_reminder %}REMINDER - this invoice is still unpaid.
+
+{% endif %}INVOICE {{ invoice_number }}
+
+From:    {{ store_name }}
+Billed to: {{ customer_name }}{% if customer_email %} <{{ customer_email }}>{% endif %}
+Issued:  {{ issued_on|date:"j M Y" }}
+Due:     On receipt
+Order:   {{ order_number }}
+
+{% for line in lines %}{{ line.quantity }} x {{ line.name }}  @ {{ line.unit_price }}  =  {{ line.line_total }}
+{% endfor %}
+TOTAL DUE: {{ total }}
+
+Pay this invoice securely on PayPal:
+{{ link }}
+
+You do not need an Orbiz account to pay. If you were not expecting this invoice, you can ignore this email.
+Questions about the invoice? Reply to this email to reach {{ store_name }}.
+{% endautoescape %}

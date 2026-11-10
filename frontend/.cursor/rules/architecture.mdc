@@ -1,5 +1,5 @@
 ---
-description: Enforce Meraki Interiors frontend architecture and coding conventions
+description: Enforce Orbiz Interiors frontend architecture and coding conventions
 globs:
   - "src/**/*.{ts,tsx}"
   - "vite.config.ts"

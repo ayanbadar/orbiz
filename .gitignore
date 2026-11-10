@@ -64,3 +64,5 @@ Thumbs.db
 *.pid
 celerybeat-schedule
 celerybeat.pid
+
+Orbiz_Product_Features_and_Roadmap.docx

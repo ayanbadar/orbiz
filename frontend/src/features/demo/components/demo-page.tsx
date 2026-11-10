@@ -1,5 +1,6 @@
 import { parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
 
+import { Logo } from "@/components/logo";
 import { QueryState } from "@/components/query-state";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,9 +32,7 @@ export function DemoPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
       <header className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">
-          Meraki Interiors
-        </p>
+        <Logo />
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Frontend foundation
         </h1>

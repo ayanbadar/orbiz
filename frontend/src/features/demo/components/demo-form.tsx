@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import {
   Card,
   CardContent,
@@ -25,7 +26,7 @@ export function DemoForm() {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting, isSubmitSuccessful },
+    formState: { errors, isSubmitting },
   } = useForm<DemoFormValues>({
     resolver: zodResolver(demoFormSchema),
     defaultValues: {
@@ -40,6 +41,7 @@ export function DemoForm() {
     });
     console.info("Demo form submitted:", values);
     reset();
+    toast.success("Submitted.");
   };
 
   return (
@@ -91,9 +93,6 @@ export function DemoForm() {
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Submitting…" : "Submit"}
             </Button>
-            {isSubmitSuccessful ? (
-              <p className="text-sm text-muted-foreground">Submitted.</p>
-            ) : null}
           </div>
         </form>
       </CardContent>

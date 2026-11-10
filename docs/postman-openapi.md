@@ -1,0 +1,48 @@
+# OpenAPI → Postman (Stores / Products / Customers / Orders / Payments)
+
+Orbiz serves the live schema from the API. Export that into Postman for the hackathon demo.
+
+## Schema URLs
+
+| Env | Schema | Swagger UI |
+| --- | --- | --- |
+| Local Docker (`DEBUG=True`) | `http://localhost:8001/api/schema/` | `http://localhost:8001/api/docs/` |
+| Non-debug | Same paths; **requires Bearer JWT** | Same |
+
+## Import into Postman
+
+1. Postman → **Import** → **Link** (or download the YAML/JSON from `/api/schema/`).
+2. Paste `http://localhost:8000/api/schema/`.
+3. After import, set collection auth to **Bearer Token** and paste an access token from `POST /api/v1/auth/login/`.
+4. Base URL variable: `http://localhost:8001`.
+
+## Key requests to keep in the demo collection
+
+- `GET /api/v1/stores/me/`
+- `GET /api/v1/products/` (try `?low_stock=true`, `?out_of_stock=true`, `?is_active=true`)
+- `POST /api/v1/products/`
+- `POST /api/v1/products/{id}/adjust-stock/`
+- `POST /api/v1/products/{id}/check-stock/` — **pre-check only**
+- `GET /api/v1/products/{id}/order-usage/`
+- `POST /api/v1/products/channel3/search/`
+- `POST /api/v1/products/import-from-channel3/`
+- `GET/POST /api/v1/customers/` — list supports `q`, `name`, `email`, `phone`, `orders_min`, `orders_max`, `ordering` (`name` / `order_count` / `last_order_at` / `created_at`, each ± ); every row (list, detail, create, patch response) includes `order_count` and `last_order_at`
+- `GET/PATCH /api/v1/customers/{id}/`
+- `GET/POST /api/v1/orders/` — list also supports `customer_id` (exact match; used by the customer profile's "view all orders" link)
+- `POST /api/v1/orders/{id}/confirm/` — locks + deducts stock; optional body `{notify_customer?: boolean}` (default false) also emails the customer an order confirmation — 400 `notify_customer` if the customer has no email, checked before anything is confirmed
+- `POST /api/v1/orders/{id}/mark-paid/` — demo / offline fallback (prefer PayPal Sandbox)
+- `POST /api/v1/orders/{id}/abandon-payment/` — payment cancelled, order stays unfulfilled
+- `POST /api/v1/orders/{id}/transition/` — body may include `allow_unpaid`; default requires paid
+- `POST /api/v1/orders/{id}/cancel/` — restores stock once when deducted
+- `POST /api/v1/payments/orders/{id}/checkout/` — create PayPal Sandbox checkout
+- `POST /api/v1/payments/orders/{id}/capture/` — capture after buyer approval (also runs automatically on the `CHECKOUT.ORDER.APPROVED` webhook)
+- `POST /api/v1/payments/orders/{id}/refund/` — body `{amount?, note_to_payer?}`; omit `amount` for a full refund; returns the order
+- `POST /api/v1/payments/orders/{id}/invoice/` — body `{recipient_email?}`; with an email the buyer is emailed by Orbiz (`PAYPAL_INVOICE_DELIVERY=orbiz`, the PayPal invoice is created link-only) or by PayPal (`paypal`); blank email = link-only; returns the order
+- `POST /api/v1/payments/orders/{id}/email-link/` — body `{recipient_email?, kind?: "request"|"reminder"}`; emails the open invoice or pay-now link through Orbiz SMTP (blank email = the customer's); 409 `email_cooldown` if the same address was just emailed; returns the order (`paypal_payment_request` shows the email's queued/sent/failed status)
+- `POST /api/v1/payments/orders/{id}/invoice/cancel/` — cancel the open PayPal invoice; returns the order
+- `GET /api/v1/payments/orders/{id}/` — latest checkout + configured/sandbox flags
+- `POST /api/v1/payments/webhooks/paypal/` — verified webhook (no JWT; signature required)
+
+Tags in the schema: `auth`, `stores`, `products`, `customers`, `orders`, `payments`.
+
+Re-export from `/api/schema/` after endpoint changes so Postman stays current.

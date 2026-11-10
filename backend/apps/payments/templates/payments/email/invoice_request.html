@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice {{ invoice_number }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f2;font-family:Arial,Helvetica,sans-serif;color:#111111;">
+<div style="display:none;max-height:0;overflow:hidden;">Invoice {{ invoice_number }} from {{ store_name }}: {{ total }} due on receipt.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f2;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;padding:28px;">
+{% if sandbox %}
+<tr><td style="padding-bottom:16px;">
+<div style="background:#fff4d6;border:1px solid #f0d27a;border-radius:8px;padding:10px 12px;font-size:13px;color:#6b4e00;">
+<strong>PayPal Sandbox test.</strong> No real money moves.
+</div>
+</td></tr>
+{% endif %}
+{% if is_reminder %}
+<tr><td style="padding-bottom:16px;">
+<div style="background:#fdeaea;border:1px solid #f1b5b5;border-radius:8px;padding:10px 12px;font-size:13px;color:#7a1f1f;">
+<strong>Reminder:</strong> this invoice is still unpaid.
+</div>
+</td></tr>
+{% endif %}
+<tr><td style="padding-bottom:20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#555555;">Invoice</td>
+<td align="right" style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#555555;">{{ store_name }}</td>
+</tr><tr>
+<td colspan="2" style="font-size:26px;font-weight:bold;padding-top:4px;">{{ invoice_number }}</td>
+</tr></table>
+</td></tr>
+<tr><td style="padding-bottom:20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:20px;">
+<tr>
+<td valign="top" width="50%" style="padding-bottom:12px;"><span style="color:#555555;font-size:12px;">BILLED TO</span><br>{{ customer_name }}{% if customer_email %}<br><span style="color:#555555;">{{ customer_email }}</span>{% endif %}</td>
+<td valign="top" width="50%" style="padding-bottom:12px;"><span style="color:#555555;font-size:12px;">ISSUED</span><br>{{ issued_on|date:"j M Y" }}</td>
+</tr>
+<tr>
+<td valign="top"><span style="color:#555555;font-size:12px;">ORDER</span><br>{{ order_number }}</td>
+<td valign="top"><span style="color:#555555;font-size:12px;">DUE</span><br><strong>On receipt</strong></td>
+</tr>
+</table>
+</td></tr>
+<tr><td style="padding-bottom:8px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;border-collapse:collapse;">
+<tr style="background:#f4f4f2;">
+<th align="left" style="padding:8px;font-size:12px;color:#555555;font-weight:normal;">Description</th>
+<th align="right" style="padding:8px;font-size:12px;color:#555555;font-weight:normal;">Qty</th>
+<th align="right" style="padding:8px;font-size:12px;color:#555555;font-weight:normal;">Price</th>
+<th align="right" style="padding:8px;font-size:12px;color:#555555;font-weight:normal;">Amount</th>
+</tr>
+{% for line in lines %}
+<tr>
+<td style="padding:10px 8px;border-bottom:1px solid #e5e5e0;">{{ line.name }}</td>
+<td align="right" style="padding:10px 8px;border-bottom:1px solid #e5e5e0;">{{ line.quantity }}</td>
+<td align="right" style="padding:10px 8px;border-bottom:1px solid #e5e5e0;white-space:nowrap;">{{ line.unit_price }}</td>
+<td align="right" style="padding:10px 8px;border-bottom:1px solid #e5e5e0;white-space:nowrap;">{{ line.line_total }}</td>
+</tr>
+{% endfor %}
+<tr>
+<td colspan="3" align="right" style="padding:14px 8px 0;font-weight:bold;">Total due</td>
+<td align="right" style="padding:14px 8px 0;font-weight:bold;font-size:18px;white-space:nowrap;">{{ total }}</td>
+</tr>
+</table>
+</td></tr>
+<tr><td align="center" style="padding:20px 0;">
+<a href="{{ link }}" style="display:inline-block;background:#111111;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:999px;">Pay invoice</a>
+<div style="font-size:12px;color:#555555;padding-top:8px;">Pay securely on PayPal. No Orbiz account needed.</div>
+</td></tr>
+<tr><td style="font-size:12px;line-height:18px;color:#555555;">
+If the button does not work, copy this link into your browser:<br>
+<a href="{{ link }}" style="color:#555555;word-break:break-all;">{{ link }}</a>
+<br><br>If you were not expecting this invoice, you can ignore this email. Questions about the invoice? Reply to this email to reach {{ store_name }}.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -4,7 +4,10 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 
+import { DataGridProvider } from "@/components/data-grid";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/features/auth/context/auth-context";
 import { queryClient } from "@/lib/query-client";
 
 type AppProvidersProps = {
@@ -20,9 +23,14 @@ export function AppProviders({ children }: AppProvidersProps) {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <NuqsAdapter>{children}</NuqsAdapter>
+          <NuqsAdapter>
+            <AuthProvider>
+              <DataGridProvider>{children}</DataGridProvider>
+            </AuthProvider>
+          </NuqsAdapter>
         </BrowserRouter>
         <ReactQueryDevtools initialIsOpen={false} />
+        <Toaster />
       </QueryClientProvider>
     </ErrorBoundary>
   );
