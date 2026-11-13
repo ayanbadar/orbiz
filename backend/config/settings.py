@@ -251,6 +251,9 @@ NOTIFY_SELLER_ON_PAYMENT = env.bool("NOTIFY_SELLER_ON_PAYMENT", default=True)
 # Celery (namespace CELERY_*)
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND")
+# Run tasks inline (no broker/worker). For hosts without Redis/Celery, e.g. Render free tier.
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = False
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
