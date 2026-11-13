@@ -1,0 +1,2782 @@
+{
+  "info": {
+    "name": "Orbiz API",
+    "description": "All Orbiz backend APIs grouped by Django app. Generated from the OpenAPI schema (drf-spectacular). Run Accounts (Auth) > POST /auth/login/ first; it stores access_token/refresh_token automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Accounts (Auth)",
+      "item": [
+        {
+          "name": "POST /auth/change-password/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/change-password/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Change password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"string\",\n  \"new_password\": \"string\",\n  \"new_password_confirm\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/forgot-password/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/forgot-password/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/login/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.access) pm.collectionVariables.set(\"access_token\", j.access);",
+                  "if (j.refresh) pm.collectionVariables.set(\"refresh_token\", j.refresh);",
+                  "if (j.tokens && j.tokens.access) pm.collectionVariables.set(\"access_token\", j.tokens.access);",
+                  "if (j.tokens && j.tokens.refresh) pm.collectionVariables.set(\"refresh_token\", j.tokens.refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/logout/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Sign out",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /auth/me/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Current account"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /auth/me/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Update profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/register/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"string\",\n  \"password_confirm\": \"string\",\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"store_name\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/reset-password/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/reset-password/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"string\",\n  \"token\": \"string\",\n  \"new_password\": \"string\",\n  \"new_password_confirm\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/token/refresh/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/refresh/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "token",
+                "refresh"
+              ]
+            },
+            "description": "Takes a refresh type JSON web token and returns an access type JSON web\ntoken if the refresh token is valid.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.access) pm.collectionVariables.set(\"access_token\", j.access);",
+                  "if (j.refresh) pm.collectionVariables.set(\"refresh_token\", j.refresh);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Accounts (Platform Admin)",
+      "item": [
+        {
+          "name": "GET /admin/users/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/users/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/{{user_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /admin/users/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/{{user_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stores",
+      "item": [
+        {
+          "name": "GET /stores/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stores/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stores"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Get my store (0 or 1)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /stores/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stores/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stores"
+              ]
+            },
+            "description": "Create my store (one per user)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"currency\": \"USD\",\n  \"timezone\": \"UTC\",\n  \"business_type\": \"social\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stores/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stores/{{store_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stores",
+                "{{store_id}}"
+              ]
+            },
+            "description": "Get store"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /stores/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stores/{{store_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stores",
+                "{{store_id}}"
+              ]
+            },
+            "description": "Update store",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"currency\": \"string\",\n  \"timezone\": \"string\",\n  \"business_type\": \"social\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /stores/me/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stores/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stores",
+                "me"
+              ]
+            },
+            "description": "My store"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stores (Team)",
+      "item": [
+        {
+          "name": "GET /team/permissions/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/permissions/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "permissions"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /team/roles/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/roles/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "roles"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /team/roles/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/roles/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "roles"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"permissions\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /team/roles/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/roles/{{role_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /team/roles/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/roles/{{role_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"permissions\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /team/roles/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/roles/{{role_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /team/users/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/users/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /team/users/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/users/{{user_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"is_active\": false,\n  \"role_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /team/users/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/team/users/{{user_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "team",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Stores (Platform Admin)",
+      "item": [
+        {
+          "name": "GET /admin/stores/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/stores/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "stores"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /admin/stores/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/stores/{{store_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "stores",
+                "{{store_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /admin/stores/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/stores/{{store_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "stores",
+                "{{store_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"suspended\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /admin/stores/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/stores/{{store_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "stores",
+                "{{store_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Invitations",
+      "item": [
+        {
+          "name": "GET /invitations/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invitations/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"role_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /invitations/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/{{invitation_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "{{invitation_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invitations/{token}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/{{invitation_token}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "{{invitation_token}}"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invitations/{token}/accept/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/{{invitation_token}}/accept/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "{{invitation_token}}",
+                "accept"
+              ]
+            },
+            "description": "Open to anonymous clients. JWT auth stays enabled so a bad login is a 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"\",\n  \"password\": \"string\",\n  \"password_confirm\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /invitations/store-admins/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/store-admins/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "store-admins"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /invitations/store-admins/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/store-admins/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "store-admins"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"store_name\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /invitations/store-admins/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/store-admins/{{invitation_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "store-admins",
+                "{{invitation_id}}"
+              ]
+            },
+            "description": "Views only the platform (super) admin may call."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Billing",
+      "item": [
+        {
+          "name": "GET /billing/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/billing/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing"
+              ]
+            },
+            "description": "Subscription status and payment history"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /billing/cancel/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/billing/cancel/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "cancel"
+              ]
+            },
+            "description": "Cancel renewal"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /billing/checkout/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/billing/checkout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "billing",
+                "checkout"
+              ]
+            },
+            "description": "Pay the $5 plan (mock \u2014 no real charge)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_number\": \"string\",\n  \"simulate_failure\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "GET /admin/dashboard/summary/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/dashboard/summary/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "dashboard",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Reporting period. Defaults to 30d."
+                }
+              ]
+            },
+            "description": "Platform-wide numbers for the super admin."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /dashboard/summary/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/summary/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Reporting period. Defaults to 30d."
+                }
+              ]
+            },
+            "description": "Sales, orders, customers and stock for the caller's store."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "GET /products/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"sku\": \"string\",\n  \"description\": \"string\",\n  \"price\": \"10.00\",\n  \"stock_quantity\": 0,\n  \"low_stock_threshold\": 5,\n  \"is_active\": false,\n  \"image_url\": \"https://example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /products/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"sku\": \"string\",\n  \"description\": \"string\",\n  \"price\": \"10.00\",\n  \"low_stock_threshold\": 1,\n  \"is_active\": false,\n  \"image_url\": \"https://example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /products/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/{id}/adjust-stock/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/adjust-stock/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "adjust-stock"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"delta\": 1,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{id}/adjustments/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/adjustments/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "adjustments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/{id}/check-stock/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/check-stock/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "check-stock"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{id}/order-usage/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/{{product_id}}/order-usage/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "{{product_id}}",
+                "order-usage"
+              ]
+            },
+            "description": "Recent order lines for a product (product detail \u00a72.5 hook)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/channel3/search/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/channel3/search/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "channel3",
+                "search"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"string\",\n  \"limit\": 10,\n  \"page_token\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /products/import-from-channel3/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/import-from-channel3/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "import-from-channel3"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel3_product_id\": \"string\",\n  \"sku\": \"string\",\n  \"price\": \"10.00\",\n  \"stock_quantity\": 0,\n  \"low_stock_threshold\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "GET /customers/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Email contains."
+                },
+                {
+                  "key": "name",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Name contains."
+                },
+                {
+                  "key": "needs_attention",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Only customers with at least one open order (draft/unfulfilled/processing/shipped)."
+                },
+                {
+                  "key": "ordering",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Sort key; defaults to name. Customers with no orders sort last by last_order_at."
+                },
+                {
+                  "key": "orders_max",
+                  "value": "",
+                  "disabled": true,
+                  "description": "At most this many orders."
+                },
+                {
+                  "key": "orders_min",
+                  "value": "",
+                  "disabled": true,
+                  "description": "At least this many orders."
+                },
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                },
+                {
+                  "key": "phone",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Phone contains."
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Search name, email, or phone."
+                }
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /customers/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"phone\": \"string\",\n  \"notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /customers/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers/{{customer_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /customers/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers/{{customer_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"phone\": \"string\",\n  \"notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "GET /orders/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ]
+            },
+            "description": "Throttle POST with the `writes` scope; reads on the same view stay unthrottled.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"delivery_notes\": \"\",\n  \"internal_notes\": \"\",\n  \"source_message\": \"\",\n  \"lines\": [\n    {\n      \"product_id\": 1,\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /orders/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /orders/{id}/",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}"
+              ]
+            },
+            "description": "Separate request and response contracts on generic create/update views.\n\n- `serializer_class` shapes reads (GET).\n- `input_serializer_class` validates and saves writes (POST/PUT/PATCH).\n- `output_serializer_class` shapes the write response; defaults to `serializer_class`.\n\nThe response re-reads the saved row through `get_queryset()`, so it carries the\nsame annotations and prefetches as a GET of that object.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"delivery_notes\": \"string\",\n  \"internal_notes\": \"string\",\n  \"source_message\": \"string\",\n  \"lines\": [\n    {\n      \"product_id\": 1,\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/{id}/abandon-payment/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/abandon-payment/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "abandon-payment"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/{id}/cancel/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/cancel/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/{id}/confirm/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/confirm/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "confirm"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notify_customer\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/{id}/mark-paid/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/mark-paid/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "mark-paid"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders/{id}/transition/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/transition/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "transition"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fulfilment_status\": \"processing\",\n  \"allow_unpaid\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "GET /payments/orders/{order_id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/capture/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/capture/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "capture"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/checkout/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/checkout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "checkout"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/email-link/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/email-link/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "email-link"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_email\": \"\",\n  \"kind\": \"request\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/invoice/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/invoice/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "invoice"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_email\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/invoice/cancel/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/invoice/cancel/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "invoice",
+                "cancel"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/orders/{order_id}/refund/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/orders/{{order_id}}/refund/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                "{{order_id}}",
+                "refund"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"10.00\",\n  \"note_to_payer\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /payments/webhooks/paypal/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/webhooks/paypal/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "webhooks",
+                "paypal"
+              ]
+            },
+            "description": "PayPal webhook receiver (signature verified)",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Assistant",
+      "item": [
+        {
+          "name": "GET /assistant/actions/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/actions/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "actions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /assistant/actions/{id}/confirm/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/actions/{{id}}/confirm/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "actions",
+                "{{id}}",
+                "confirm"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"string\",\n  \"sku\": \"string\",\n  \"price\": \"string\",\n  \"stock_quantity\": 1,\n  \"low_stock_threshold\": 1,\n  \"method\": \"checkout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /assistant/actions/{id}/reject/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/actions/{{id}}/reject/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "actions",
+                "{{id}}",
+                "reject"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /assistant/activity/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/activity/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /assistant/conversations/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/conversations/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true,
+                  "description": "A page number within the paginated result set."
+                },
+                {
+                  "key": "page_size",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Number of results to return per page."
+                }
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /assistant/conversations/",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/conversations/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "conversations"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /assistant/conversations/{id}/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/conversations/{{conversation_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /assistant/conversations/{id}/",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/conversations/{{conversation_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /assistant/digest/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/digest/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "digest"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /assistant/messages/",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/messages/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "messages"
+              ]
+            },
+            "description": "Scope a view to the caller's store and enforce role permissions.\n\nSubclasses set `permission_resource` (\"products\", \"orders\", ...) and implement\nget_queryset() filtered on self.store. HasStorePermission also blocks suspended\nand unpaid stores and deactivated users on every request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"string\",\n  \"conversation_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "GET /health/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/health/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/schema/ (OpenAPI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/schema/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "schema"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001"
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "product_id",
+      "value": "1"
+    },
+    {
+      "key": "customer_id",
+      "value": "1"
+    },
+    {
+      "key": "order_id",
+      "value": "1"
+    },
+    {
+      "key": "store_id",
+      "value": "1"
+    },
+    {
+      "key": "user_id",
+      "value": "1"
+    },
+    {
+      "key": "role_id",
+      "value": "1"
+    },
+    {
+      "key": "conversation_id",
+      "value": "1"
+    },
+    {
+      "key": "action_id",
+      "value": "1"
+    },
+    {
+      "key": "invitation_id",
+      "value": "1"
+    },
+    {
+      "key": "invitation_token",
+      "value": ""
+    }
+  ]
+}
